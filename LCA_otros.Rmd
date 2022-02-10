@@ -239,7 +239,7 @@ if(!require(mediation)){install.packages("mediation")}
 if(!require(finalfit)){install.packages("finalfit")}
 if(!require(diagram)){install.packages("diagram")}
 if(!require(poLCA)){install.packages("poLCA")}
-
+if(!require(missRanger)){install.packages("missRanger")}
 #_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
 #_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
 path_2<-rstudioapi::getSourceEditorContext()$path
@@ -737,18 +737,100 @@ cv.test = function(x, y) {
  print.noquote("Cramér V / Phi:")
  return(as.numeric(CV))
 }
+
 ```
 
 <br>
 
 # Fecha: `r format(Sys.time(), '%d %B, %Y')`
 
-# Análisis de Clases Latentes
+# Imputación del sexo
+
+Se decidió imputar el sexo para los casos en que no fue posible imputar el correo manualmente ya que el correo sólo indicaba iniciales, o bien porque la particularidad del nombre hacía difícil inferir un género. Para ello se imputó de vañpres faltantes mediante árboles de decisión aleatorios iterativos (chained random forest) para la variable con valores perdidos.
+
+<br>
+
+```{r paso0,eval=T, echo=T, paged.print=TRUE, eval=T}
+#https://rdrr.io/github/domus11move/IMPMUL2/man/missRanger.html
+nombres_xlsx <- readxl::read_excel("nombres.xlsx.xlsx") 
+colnames(nombres_xlsx)<-c("hash","sexo","correo","sexo_manual_imp","com1","com2")
+nombres_xlsx_filt <-
+nombres_xlsx%>% dplyr::group_by(hash) %>% dplyr::add_count() %>% dplyr::ungroup() %>% dplyr::filter(n==1)
+
+encuesta_rec_cor<-
+encuesta_rec %>% 
+  dplyr::left_join(nombres_xlsx_filt, by=c("correo_val_cor"="hash")) %>% 
+  dplyr::select(-sexo.x,-sexo.y,-com1,-com2,-n)#%>% dim()
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+
+time_before_missforest<-Sys.time()
+library(missRanger)
+set.seed(2125)
+encuesta_rec_cor_imp <- missRanger(
+                encuesta_rec_cor, 
+                formula = sexo_manual_imp ~ a_dir + b_ger + c_area,
+                num.trees = 400, 
+                returnOOB=T,
+                maxiter=50000,
+                verbose = 2, 
+                seed = 2125)
+
+encuesta_rec_cor_imp<-dplyr::rename(encuesta_rec_cor_imp,"sexo"="sexo_manual_imp")
+
+time_after_missforest<-Sys.time()
+
+paste0("Time in imputation process: ");time_after_missforest-time_before_missforest
+```
+
+<br>
+
+Posteriormente, se añaden los puntajes estandarizados asociados a cada factor hallado.
+
+<br>
 
 ```{r paso1,eval=T, echo=T, paged.print=TRUE, eval=T}
 #
-meas_model_original_pred_lavaan<-cbind(encuesta_rec,lavPredict(tot_4f_inicial))
+meas_model_original_pred_lavaan<-cbind(encuesta_rec_cor_imp,lavPredict(tot_4f_inicial))
 ```
+
+<br>
+
+# Regresión
+
+```{r paso0_a,eval=T, echo=T, paged.print=TRUE, eval=T}
+rbind.data.frame(broom::tidy(lm(fa1~ a_dir+ b_ger+ sexo,data=meas_model_original_pred_lavaan),conf.int=T),
+broom::tidy(lm(fa2~ a_dir+ b_ger+ sexo,data=meas_model_original_pred_lavaan),conf.int=T),
+broom::tidy(lm(fa3~ a_dir+ b_ger+ sexo,data=meas_model_original_pred_lavaan),conf.int=T),
+broom::tidy(lm(fa4~ a_dir+ b_ger+ sexo,data=meas_model_original_pred_lavaan),conf.int=T)) %>% 
+  dplyr::select(term,estimate,conf.low, conf.high,p.value) %>%
+  #dplyr::filter(p.value<0.05)
+  dplyr::mutate(across(where(is.numeric), ~ round(.x, 3))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Validez Discriminante"),
+               align =c('l',rep('c', 101)))%>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+  kableExtra::add_footnote(c("Nota. "),
+                            notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::group_rows("Identificación, proyección e involucramiento (fa1)",1,28) %>% 
+  kableExtra::group_rows("Supervisor inmediato (fa2)",29,56) %>% 
+  kableExtra::group_rows("Capacidad desiderativa y valórica de la empresa (fa3)",57,84) %>% 
+  kableExtra::group_rows("Formación e Información (fa4)",85,112) %>% 
+  kableExtra::scroll_box(width = "100%", height = "375px") 
+  
+  # col.names = c("Var. Latentes",   )
+```
+
+No se ven diferencias por gerencia, dirección o sexo en los puntajes estandarizados para cada factor.
+
+<br>
+
+# Análisis de Clases Latentes
+
+A diferencia del análisis anterior que tiene foco en los ítems, este análisis busca encontrar patrones de respuesta común por parte de los encuestados, y clasificarlos de acuerdo  cómo se distribuyen los datos. Para ello se eligió la dirección para la cual trabajaban, el sexo y el puntaje en cada uno de los factores antes seleccionados, divididos en quintiles de acuerdo: "Identificación, proyección e involucramiento (fa1)", "Supervisor inmediato (fa2)", "Capacidad desiderativa y valórica de la empresa (fa3)", "Formación e Información (fa4)". De tal manera que, por ejemplo, un usuario con bajos puntajes en el factor 1 se encontrará en el primer quintil (20% de puntajes más bajos) de la variable latente fa1 (que hemos denominado Identificación, proyección e involucramiento).
+
+<br>
 
 ```{r paso2_definir_variables,eval=T, echo=T, paged.print=TRUE, eval=T}
 #a_dir  b_ger sexo 
@@ -813,23 +895,45 @@ df2_cor_table2_LCA <- broom::augment(LCA_best_model_final, data = meas_model_ori
 ```
 </div>
 
-```{r fig2_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 3. Selected Model", message=FALSE, error=T, eval=T, fig.height=15}
+```{r fig2_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura 1. Probabilidades de Respuesta a categorías", message=FALSE, error=T, eval=T, fig.height=15}
 ## If you are interested in the population-shares of the classes, you can get them like this:
 invisible(round(colMeans(LCA_best_model_final$posterior)*100,2))
 ## or you inspect the estimated class memberships:
 invisible(round(prop.table(table(LCA_best_model_final$predclass)),4)*100)
 
+if(no_mostrar==1){
+  invisible("Para ver los niveles de variables")
+  levels(factor(meas_model_original_pred_lavaan$sexo))
+  table(mydata$sexo)
+}
+
 lcmodel_a <- reshape2::melt(LCA_best_model_final$probs, level=2)
 lcmodel_a2<-
 lcmodel_a %>% 
-  dplyr::mutate(L2=factor(L2, levels=c("tamizaje_ans", "tamizaje_dep","p8_exp_c19_cerca_cont_rec",paste0("p12_13_nec_insuf_0",c(1,2,3,4,6,7,9)),paste0("p40_cond_trab_istas_0",6:9),"p45_demo_sexo"),labels=c("ansiedad","depresion","contact_covid",paste0("nec_insuf_",c("gu","po","pf","ov","mq","m95","de")),paste0("istas_",c("sup_esc","sup_ayu","comp_ayu","amb_comp")),"sexo"), ordered=T)) %>% 
+  dplyr::mutate(L2=factor(L2, levels=c("a_dir","sexo","fa1","fa2","fa3","fa4"), ordered=T)) %>% 
   dplyr::mutate(Var2 = factor(dplyr::case_when(as.character(Var2)=="Pr(6)"~"Pr miss",
-                                               TRUE~as.character(Var2))))
-zp1 <- ggplot(lcmodel_a2,aes(x = L2, y = value, fill = Var2))
+                                               TRUE~as.character(Var2)))) %>% 
+  dplyr::mutate(Var2_lab = factor(dplyr::case_when(L2=="a_dir"&Var2=="Pr(1)"~"Admin. & Fin.",
+                                  L2=="a_dir"&Var2=="Pr(2)"~"Gcia. General",
+                                  L2=="a_dir"&Var2=="Pr(3)"~"Marketing",
+                                  L2=="a_dir"&Var2=="Pr(4)"~"Marketing Clientes",
+                                  L2=="a_dir"&Var2=="Pr(5)"~"Op. & Client.",                                                                        L2=="a_dir"&Var2=="Pr(6)"~"RRHH",
+                                  L2=="a_dir"&Var2=="Pr(7)"~"Ventas",
+                                  L2=="sexo"&Var2=="Pr(1)"~"F",
+                                  L2=="sexo"&Var2=="Pr(2)"~"H",
+                                  L2=="sexo"&Var2=="Pr(3)"~"NS",
+                                  grepl("fa",L2)&Var2=="Pr(1)"~"quintil 1",
+                                  grepl("fa",L2)&Var2=="Pr(2)"~"quintil 2",
+                                  grepl("fa",L2)&Var2=="Pr(3)"~"quintil 3",
+                                  grepl("fa",L2)&Var2=="Pr(4)"~"quintil 4",
+                                  grepl("fa",L2)&Var2=="Pr(5)"~"quintil 5",                 
+                                               T~as.character(Var2)))) %>% 
+  dplyr::mutate(value=round(value, 3),label_text=paste0("Valor= ",Var2_lab,"\nPr= ",scales::percent(value)))
+zp1 <- ggplot(lcmodel_a2,aes(x = L2, y = value, fill = Var2, text=label_text))
 zp1 <- zp1 + geom_bar(stat = "identity", position = "stack")
 zp1 <- zp1 + facet_grid(Var1 ~ .) 
 zp1 <- zp1 + scale_fill_brewer(type="seq", palette="Greys", na.value = "white") +theme_bw()
-zp1 <- zp1 + labs(y = "Percentage of Probabilities of Response", 
+zp1 <- zp1 + labs(y = "% of Probabilidades de Respuesta", 
                   x = "Items",
                   fill ="Cateorías de\nRespuesta")
 zp1 <- zp1 + theme( axis.text.y=element_blank(),
@@ -837,12 +941,24 @@ zp1 <- zp1 + theme( axis.text.y=element_blank(),
                     axis.ticks.y=element_blank(),                    
                     panel.grid.major.y=element_blank())
 zp1 <- zp1 + guides(fill = guide_legend(reverse=TRUE))
-print(zp1)
+
+ggplotly(zp1, tooltip = c("label_text"))%>%#
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
 
 jpeg("_Fig_LCA.jpg", height = 7, width = 11.5, units = 'in', res = 600)
 zp1+ theme(plot.background = element_rect(fill=NA, color = NA))
 dev.off()
 ```
+
+<br>
+
+- La primera clase (`r round(colMeans(LCA_best_model_final$posterior)*100,2)[1]`%) tiene una distribución similar de hombres y mujeres (alta proporción de mujeres), y en los 4 factores se encuentra un grado de acuerdo estandarizado en torno al quintil 4. Particularmente, en "Identificación, proyección e involucramiento (fa1)" y "Formación e Información (fa4)". En los factores 2 y 3 ("Supervisor inmediato (fa2)" y "Capacidad desiderativa y valórica de la empresa (fa3)") tienen valores inconsistentes (un importante porcentaje con valores en el quintil 1 y 2, versus valores más altos en el quintil 5).
+- La segunda clase (`r round(colMeans(LCA_best_model_final$posterior)*100,2)[2]`%) abarca a una menor proporción del eprsonal de ventas, y una leve mayor proporción de personal de Op. & client. y Marketing clientes, mayor proporción de mujeres, que evalúan los factores en torno al quintil 3, con una distribución bastante desigual/inconsistentes en los factores 2 y 3 (con más valores bajos o en quintiles inferiores, y a su vez con valores altos como el quintil 4)
+- La tercera clase (`r round(colMeans(LCA_best_model_final$posterior)*100,2)[3]`%) tiene una distribución en el promedio de las distintas variables, aunque con una mayor proporción de personal de Administración y finanzas, evaluando entorno al segundo quintil las preguntas en las distintas dimensiones, siendo la peor evaluada la dimensión sobre "Formación e Información (fa4)", seguido por "Supervisor inmediato (fa2)"
+- La cuarta clase (`r round(colMeans(LCA_best_model_final$posterior)*100,2)[4]`%) abarca una leve mayor concentración de personal de ventas, en su mayoría hombres y que todos evalúan muy favorablemente las dimensiones expuestas.
+- La quinta clase (`r round(colMeans(LCA_best_model_final$posterior)*100,2)[5]`%) tiene bastantes personas en dirección de Op. & client., en su mayoría hombres, y con puntajes más bajos en el grado de acuerdo con enunciados sobre "Identificación, proyección e involucramiento (fa1)", "Supervisor inmediato (fa2)", "Capacidad desiderativa y valórica de la empresa (fa3)" y "Formación e Información (fa4)".
+
+<br>
 
 ```{r paso4_bvr,eval=T, echo=T, paged.print=TRUE, eval=T}
 #In this case, residuals are actual cell counts vs. expected cell counts. 
@@ -869,7 +985,7 @@ Ver si la exclusión de casos que no calzan en alguna clase tiene consecuencias.
 
 <br>
 
-```{r fig1_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 2. Comparative of models of latent classes (2 to 7, from left to right)", message=FALSE, error=T, eval=T, fig.height=10}
+```{r fig1_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura 2. Comparative of models of latent classes (2 to 7, from left to right)", message=FALSE, error=T, eval=T, fig.height=10}
 to_string <- as_labeller(c(`0` = "Sig. Outcomes", `1` = "Non Sig. Outcomes"))
 
 manualcolors<-c('indianred1','cornflowerblue', 'gray50', 'darkolivegreen4', 'slateblue2', 
@@ -883,13 +999,13 @@ lc_entropy_table%>%
   #dplyr::group_by(Nclass)%>%
   
   dplyr::mutate(indices=factor(indices, levels=c('resid. df', 'likelihood-ratio', 'log-likelihood',"LLik_pval",'Chi2', 'Chi2_pval', 'BIC', 'aBIC', 'cAIC',"Entropy","Entropy.R2","Dev Change","df","pval"),labels=c('Degrees of Freedom', "Deviance","Log-Likelihood",'p value','Chi2','p value','Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC","Entropy","Entropy R2", "Deviance Change\n(with previous model)", "df", "pval of diffs"))) %>% 
-  dplyr::filter(indices %in% c('Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC")) %>%
+  dplyr::filter(indices %in% c('Criterio de Información\nde Akaike',"Criterio de Información\nBayesiano (BIC)","BIC Ajustado")) %>%
   dplyr::mutate(Nclass=factor(Nclass)) %>% 
   ggplot(aes(x=Nclass,y=value,color=indices, group=indices))+
   geom_line()+
   geom_point()+
   theme_classic()+
-  labs(x="Number of Classes", y="Value")+
+  labs(x="Número de clases", y="Valores")+
   labs(color = "Indices")+
   geom_vline(xintercept=length(lc_entropy_best_model_lca$P)-1)+
   labs(caption="Vertical line= Selected model")
@@ -898,7 +1014,6 @@ lc_entropy_table%>%
 #lca_selectnaq %>% dplyr::arrange(BIC) 
 
 #International Journal of Workplace Health Management  (Zhang et al., 2018).
-
 
 #:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
 #:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
@@ -928,7 +1043,7 @@ dev.off()
 
 <br>
 
-```{r fig3_perfiles, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 3. Perfil datos empíricos", message=FALSE, error=T, eval=T, fig.height=10}
+```{r fig3_perfiles, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura 3. Perfil datos empíricos", message=FALSE, error=T, eval=T, fig.height=10}
 bars_probs_lca<-
 reshape2::melt(dplyr::mutate_at(df2_cor_table2_LCA,.vars=vars(paste0("fa",1:4)),.funs = ~factor(cut2(., g =5),labels=paste0("quintil ",1:5))), id.vars=c(".class",".probability")) %>% 
     dplyr::group_by(.class, variable, value) %>% 
@@ -958,7 +1073,7 @@ ggplot(aes(x = variable, y = prob, fill = value))+
                     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
                     axis.ticks.y=element_blank(),                    
                     panel.grid.major.y=element_blank())+
-    guides(fill = guide_legend(reverse=T))
+    guides(fill = guide_legend(reverse=F))
 
 
 ggplotly(bars_probs_lca)%>%#, tooltip = c("label_text")
