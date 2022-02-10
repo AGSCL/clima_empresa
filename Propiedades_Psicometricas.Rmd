@@ -1,0 +1,1456 @@
+---
+title: "Propiedades Psicométricas, AccionSalud UDP"
+output:
+  distill::distill_article:
+    code_folding: true
+    fig_height: 6
+    fig_width: 8
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+    toc_float: yes
+    output_dir: "docs"
+  toc_float:
+    collapsed: false
+    smooth_scroll: true
+bibliography: rmarkdown_validacion.bib
+nocite: '@*'
+---
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{=html}
+<style type="text/css">
+.tablelines table, .tablelines td, .tablelines th {
+  border: 1px solid black;
+  }
+.centrado {
+  text-align: center;
+}
+.table.center {
+  margin-left:auto; 
+  margin-right:auto;
+}
+.table_wrapper{
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+code.r{
+  font-size: 8px;
+}
+body{ /* Normal  */
+    text-align: justify;
+}
+.superbigimage{
+  overflow-y:scroll;
+  white-space: nowrap;
+}
+.superbigimage img{
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+p.comment {
+  background-color: #FF7F79;
+    padding: 10px;
+  border: 1px solid black;
+  margin-left: 25px;
+  border-radius: 5px;
+  font-style: italic;
+}
+</style>
+```
+```{=html}
+<style>
+  p.comment {
+    background-color: #ff9a9a;
+      padding: 10px;
+    border: 1px solid red;
+    margin-left: 25px;
+    border-radius: 5px;
+    font-style: italic;
+  }
+
+</style>
+```
+```{r setup0, include=T}
+unlink('*_cache', recursive = TRUE)
+load("__encuesta_rec_exp_post_crash.RData")
+
+if(isTRUE(getOption('knitr.in.progress'))==T){
+    clus_iter=5000
+} else {
+  input <- readline('¿Are you gonna run the dataset with the whole iterations? (Si/No): ')
+  if(input=="Si"){
+    clus_iter=10000
+  } else {
+    clus_iter=1000
+  }
+}
+library(tm)
+if(isTRUE(getOption('knitr.in.progress'))==T){
+  input2 <- "todas"
+} else {
+    input2 <- "todas"
+    input2 <- Corpus(VectorSource(input2))
+    input2 <- tm_map(input2, tolower)
+    input2 <- tm_map(input2,stripWhitespace)
+    input2 <- gsub(" ","_",as.character(unlist(input2)[1]))
+}
+```
+
+```{r setup, include=T, message=F, warning=F, error=T}
+#evitar que ocupe curl
+#options(renv.download.override = utils::download.file)
+
+
+#arriba puse algunas opciones para que por defecto escondiera el código
+#también cargue algunos estilo .css para que el texto me apareciera justificado, entre otras cosas.
+local({r <- getOption("repos")
+       r["CRAN"] <- "http://cran.r-project.org" 
+       options(repos=r)
+})
+
+clipboard <- function(x, sep="\t", row.names=FALSE, col.names=TRUE){
+     con <- pipe("xclip -selection clipboard -i", open="w")
+     write.table(x, con, sep=sep, row.names=row.names, col.names=col.names)
+     close(con)
+}
+
+`%>%` <- magrittr::`%>%`
+copy_names <- function(x,row.names=FALSE,col.names=TRUE,dec=",",...) {
+  library(dplyr)
+  if(class(ungroup(x))[1]=="tbl_df"){
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)    
+    }
+  } else {
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)       
+    }
+  }
+}  
+
+if(!require(pacman)){install.packages("pacman")}
+
+pacman::p_unlock(lib.loc = .libPaths()) #para no tener problemas reinstalando paquetes
+knitr::opts_chunk$set(
+    echo = TRUE,
+    message = FALSE,
+    warning = FALSE
+)
+#dejo los paquetes estadísticos que voy a utilizar
+
+if(!require(plotly)){install.packages("plotly")}
+if(!require(htmlwidgets)){install.packages("htmlwidgets")}
+#if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(gganimate)){install.packages("gganimate")}
+if(!require(readr)){install.packages("readr")}
+if(!require(stringr)){install.packages("stringr")}
+if(!require(data.table)){install.packages("data.table")}
+if(!require(DT)){install.packages("DT")}
+if(!require(ggplot2)){install.packages("ggplot2")}
+if(!require(lattice)){install.packages("lattice")}
+if(!require(forecast)){install.packages("forecast")}
+if(!require(zoo)){install.packages("zoo")}
+if(!require(janitor)){install.packages("janitor")}
+if(!require(rjson)){install.packages("rjson")}
+if(!require(estimatr)){install.packages("estimatr")} 
+if(!require(textreg)){install.packages("textreg")}
+if(!require(sjPlot)){install.packages("sjPlot")}
+if(!require(foreign)){install.packages("foreign")}
+if(!require(tsModel)){install.packages("tsModel")}
+if(!require(lmtest)){install.packages("lmtest")}
+if(!require(Epi)){install.packages("Epi")}
+if(!require(splines)){install.packages("splines")}
+if(!require(vcd)){install.packages("vcd")}
+if(!require(astsa)){install.packages("astsa")}
+if(!require(MASS)){install.packages("MASS")}
+if(!require(ggsci)){install.packages("ggsci")}
+if(!require(Hmisc)){install.packages("Hmisc")}
+if(!require(compareGroups)){install.packages("compareGroups")}
+if(!require(dplyr)){install.packages("dplyr")}
+if(!require(ggforce)){install.packages("ggforce")}
+if(!require(doParallel)){install.packages("doParallel")}
+if(!require(SCtools)){install.packages("SCtools")}
+if(!require(rio)){install.packages("rio")}
+if(!require(rbokeh)){install.packages("rbokeh")}
+if(!require(altair)){install.packages("altair")}
+if(!require(sqldf)){install.packages("sqldf")} 
+if(!require(devtools)){install.packages("devtools")}
+if(!require(skimr)){install.packages("skimr")}
+if(!require(tm)){install.packages("tm")} 
+if(!require(RColorBrewer)){install.packages("RColorBrewer")}
+if(!require(psych)){install.packages("psych")}
+if(!require(GPArotation)){install.packages("GPArotation")}
+if(!require(mvtnorm)){install.packages("mvtnorm")}
+if(!require(polycor)){install.packages("polycor")}
+if(!require(MVN)){install.packages("MVN")}
+if(!require(ggcorrplot)){install.packages("ggcorrplot")}
+if(!require(radiant)){install.packages("radiant")}
+if(!require(homals)){install.packages("homals")}
+if(!require(nFactors)){install.packages("nFactors")}
+if(!require(ggiraph)){install.packages("ggiraph")}
+if(!require(factoextra)){install.packages("factoextra")}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(lubridate)){install.packages("lubridate")}
+if(!require(REdaS)){install.packages("REdaS")}
+if(!require(jrt)){install.packages("jrt")}
+if(!require(parameters)){install.packages("parameters")}
+if(!require(lavaan)){install.packages("lavaan")}
+if(!require(lavaan)){install.packages("lavaan")}
+if(!require(semPlot)){install.packages("semPlot")}
+if(!require(semTools)){install.packages("semTools")}
+if(!require(random.polychor.pa)){install.packages("random.polychor.pa")}
+if(!require(heatmaply)){install.packages("heatmaply")}
+
+# Calculate the number of cores
+#no_cores <- detectCores() - 1
+##cl<-makeCluster(no_cores)
+#registerDoParallel(cl)
+# sudo apt -y install libfontconfig1-dev
+# sudo apt-get install libxml2-dev
+#Sys.setlocale(category = "LC_ALL", locale = "english")
+#locale("es", decimal_mark = ",")
+
+
+find_type <- function(x) {
+  case_when(
+    is.factor(x) ~ "factor",
+    is.character(x) ~ "character",
+    is.numeric(x) ~ "numeric",
+    TRUE ~ "not sure"
+  )
+}
+
+permute_icc <- function(x, y, n = 99) {
+  actual <- ICCbare(x, y)
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- ICCbare(scrambled_x, y)
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+permute_tau <- function(x, y, n = 99) {
+  actual <- GKtau(x, y)$tauxy
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- GKtau(scrambled_x, y)$tauxy
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+# to do:
+## get p-values
+
+eda <- function(x, plot = FALSE) {
+  
+  x <- as.data.frame(x)
+  
+  num_rows <- ncol(x)^2 - ncol(x)
+  df <- tibble(var1 = vector(mode = "character", length = 1),
+               var2 = vector(mode = "character", length = 1),
+               statistic = vector(mode = "character", length = 1),
+               value = vector(mode = "double", length = 1),
+               p_value = vector(mode = "double", length = 1),
+               n = vector(mode = "integer", length = 1))
+  
+  for(i in seq_along(1:ncol(x)))
+    for(j in seq_along(1:ncol(x))) {
+      if(i < j){
+        # get type of columns i and j
+        var_1_type <- find_type(x[,i])
+        var_2_type <- find_type(x[,j])
+        #print(paste("var1 type: ", var_1_type, "\nvar2 type: ", var_2_type, "\n\n"))
+        
+        x1 <- x[,i]
+        x2 <- x[,j]
+        
+        # remove NAs for simplicity
+        if(any(is.na(x1))){
+          # get NA indicies
+          ind <- which(is.na(x1))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        if(any(is.na(x2))){
+          # get NA indicies
+          ind <- which(is.na(x2))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        # make sure x1 and x2 are the same length
+        stopifnot(length(x1) == length(x2))
+        
+        n <- length(x1)
+        
+        if(var_1_type == "numeric" & var_2_type == "numeric") {
+          # run a correlation
+          result <- cor.test(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "r",
+                        value = result$estimate,
+                        p_value = result$p.value,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "numeric") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x1))
+          require(ICC)
+          result <- ICCbare(x1, x2)
+          p <- permute_icc(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "numeric" & var_2_type == "factor") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x2))
+          require(ICC)
+          result <- ICCbare(x2, x1)
+          p <- permute_icc(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "factor") {
+          require("GoodmanKruskal")
+          # compute the GKtau statistic
+          stat1 <- GKtau(x1, x2)$tauxy
+          stat2 <- GKtau(x1, x2)$tauyx
+          p1 <- permute_tau(x1, x2)
+          p2 <- permute_tau(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "tau",
+                        value = stat1,
+                        p_value = p1,
+                        n = n
+          )
+          df <- add_row(df, 
+                        var1 = names(x)[j],
+                        var2 = names(x)[i],
+                        statistic = "tau",
+                        value = stat2,
+                        p_value = p2,
+                        n = n
+          )
+        } else{
+          # return an empty row
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = NA_character_,
+                        value = NA_integer_,
+                        p_value = NA_real_,
+                        n = n
+          )
+        }
+      }
+    }
+  if(plot == TRUE) {
+    df[-1,] %>%
+      filter(!is.na(value)) %>%
+      unite(variables, var1, var2, sep = " by ") %>%
+      mutate(`possibly significant` = if_else(p_value < 0.05, "significant", "NS")) %>%
+      ggplot(aes(y = value, x = reorder(variables, value), color = `possibly significant`)) +
+      geom_point() +
+      coord_flip() +
+      facet_wrap(~statistic, scales = "free") +
+      theme_minimal() +
+      scale_color_manual(values = c("#37454B", "#E84F22"))
+  } else{
+    df[-1,]
+  }
+  
+}
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+ajusteAFC <- function (x) {as.data.frame(cbind("Modelo"=deparse(substitute(x)),
+                    "gl"=round(lavaan::fitMeasures(x) ["df"],digits=3),
+                    "WLS X2"=round(lavaan::fitMeasures(x)["chisq"],digits=3),
+                    "CMIN/df"=round((lavaan::fitMeasures(x)["chisq"]/fitMeasures(x) ["df"]),digits=3),
+                    "aGFI"=round(lavaan::fitMeasures(x)["agfi"],digits=3),
+                    "GFI"=round(lavaan::fitMeasures(x)["gfi"],digits=3),
+                    "RMSEA [90% IC]"=paste0(round(lavaan::fitMeasures(x) ["rmsea"],3),"[",round(lavaan::fitMeasures(x) ["rmsea.ci.lower"],3),"-",round(lavaan::fitMeasures(x) ["rmsea.ci.upper"],3),"]"),
+                    "CFit"=round(lavaan::fitMeasures(x)["rmsea.pvalue"],digits=3),
+                    "CFI"=round(lavaan::fitMeasures(x)["cfi"],digits=3),
+                    "NNFI"=round(lavaan::fitMeasures(x)["nnfi"],digits=3)))
+
+  
+  return(
+    as.data.frame(cbind("Modelo"=deparse(substitute(x)),
+                    "gl"=round(lavaan::fitMeasures(x) ["df"],digits=3),
+                    "WLS X2"=sprintf("%7.3f",round(lavaan::fitMeasures(x)["chisq"],digits=3)),
+                    "CMIN/df"=sprintf("%5.3f",round((lavaan::fitMeasures(x)["chisq"]/fitMeasures(x) ["df"]),digits=3)),
+                    "aGFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["agfi"],digits=3)),
+                    "GFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["gfi"],digits=3)),
+                    "RMSEA [90% IC]"=paste0(sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea"],3)),"[",sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea.ci.lower"],3)),"-",sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea.ci.upper"],3)),"]"),
+                    "CFit"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["rmsea.pvalue"],digits=3)),
+                    "CFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["cfi"],digits=3)),
+                    "NNFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["nnfi"],digits=3))))
+  )
+}
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+```
+
+# Fecha: `r format(Sys.time(), '%d %B, %Y')`
+
+# Propiedades Psicométricas 
+
+## Modelo de medida
+
+### Adecuación Para Análisis Factoriales
+
+```{r dim_total, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+meas_model<-encuesta_rec %>%dplyr::mutate_at(.vars=vars(comp_sos_1:superv_3),.funs = list(`num_sm`=~as.numeric(.)))%>%  dplyr::select(ends_with("num_sm")) 
+
+
+options(knitr.kable.NA = '')
+MVN::mvn(meas_model[complete.cases(meas_model),], subset = NULL, mvnTest = "mardia", covariance = TRUE, tol = 1e-25, alpha = 0.5,scale = FALSE, desc = TRUE, transform = "none", R = 1000,univariateTest = "Lillie",univariatePlot = "none", multivariatePlot = "none",multivariateOutlierMethod = "none", bc = FALSE, bcType = "rounded",showOutliers = FALSE, showNewData = FALSE)$multivariateNormality%>%
+  data.frame()%>%
+  dplyr::mutate(across(c("Statistic","p.value"),~ifelse(grepl("NA",.),NA_real_,as.numeric(as.character(.)))))%>%
+  dplyr::mutate(Statistic=sprintf("%8.2f",Statistic))%>%
+  dplyr::mutate(p.value=sprintf("%5.3f",p.value))%>%
+  dplyr::mutate(across(c("Statistic","p.value"),~ifelse(grepl("NA",.),"-",as.character(.))))%>%
+  dplyr::mutate(Result=ifelse(Result=="YES","Sí","No")) %>% 
+   knitr::kable(.,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Normalidad Multivariada Preguntas sobre cómo te sientes"),
+               col.names = c("Prueba","Estadistico","Valor p","Normalidad"),
+align =c('l',rep('c', 101)))%>%
+    kableExtra::add_footnote(c("Nota. Mardia Skewness= Asimetría Multivariante de Mardia (1970); Mardia Kurtosis= Curtosis Multivariante de Mardia (1970)",paste0("N= ",nrow(meas_model[complete.cases(meas_model),]))), notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 13)
+```
+
+```{r total_esfericidad, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#OPCS. CON DATOS== c("everything", "all.obs", "complete.obs", "na.or.complete", "pairwise.complete.obs"))
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+barlett<- function(x, complete="complete.obs"){
+paste0("X2 de Barlett (", REdaS::bart_spher(x, use = complete)$`df`,",",REdaS::bart_spher(x, use = complete)$`n`,")= ",round(REdaS::bart_spher(x, use = complete)$`X2`,2),", p", ifelse(REdaS::bart_spher(x, use = complete)$`p.value`<.001,"<0.001",paste0("=",as.character(round(REdaS::bart_spher(x, use = complete)$`p.value`,3)))))
+}
+```
+
+Sabemos que los datos no siguen una distribución normal, ¿pero existen correlaciones entre las variables en una proporción tal que haga pertinente un análisis factorial?. Para ello se efectuará una prueba de esfricidad de Barlett que permite identificar si la matriz de correlaciones es una matriz de identidad (no se identifican correlaciones). A partir de esta prueba se puede concluir que los datos son adecuados para el análisis factorial para el total de preguntas (`r barlett(meas_model)`) [@Barlett1937].
+
+<br>
+
+La segunda prueba necesaria es la medida de adecuación de la muestra (MSA) de Kayser, Meyer & Olkin (KMO), que busca contrastar si la muestra es adecuada para llevar a cabo un análisis factorial [@Lloret-Segura2014; @MendezMartinez2012].
+
+<br>
+
+```{r sm_kmo, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+#LOS ARGUMENTOS DEBEN SER NUMÉRICOS, NO PUEDEN SER ORDINALES
+#_#_#_#_#_#_#_#_#_#_#_
+cbind(Modelos=c("Total de preguntas"),
+      KMO=c(round(psych::KMO(na.omit(meas_model))$MSA,2))
+      ) %>% 
+   knitr::kable(.,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Keyser-Meyer-Olkin"),
+               align =c('l',rep('c', 101)))%>%
+   kableExtra::kable_classic() %>% 
+    #kableExtra::add_footnote(c("Nota. Los ítems son")), notation = "none")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 13)  
+
+
+#el índice Kaiser Meyer Olkin (KMO), el cual toma valores entre 0 y 1. La medida puede ser interpretada con distintos lineamientos; sin embargo, los más utilizados son: valores menores de 0,5 se consideran inaceptables; de 0,5 a 0,59, pobres; de 0,6 a 0,79, regulares, y de 0,8 a 1, meritorios. Este índice toma el valor de 1 solo en el caso de que una variable sea perfectamente predicha.
+# Méndez Martínez, Carolina, & Rondón Sepúlveda, Martín Alonso. (2012). Introducción al análisis factorial exploratorio. Revista Colombiana de Psiquiatría, 41(1), 197-207. Retrieved February 24, 2021, from http://www.scielo.org.co/scielo.php?script=sci_arttext&pid=S0034-74502012000100014&lng=en&tlng=es.
+
+```  
+
+A partir de la medida obtenida, se constata que la adecuación para el análisis es bastante adecuada,  siendo los valores KMO para ítems individuales mayores a 0.7.
+
+<br>
+
+Lo anterior, puede corroborarse en los gráficos cuantil-cuantil presentados, en los que la línea roja representa una distirbución normal, mientras que los puntos azules reflejan la distribución presente en los datos, las cuales se superponen en el menor de los casos.
+
+<br>
+
+```{r fig1_naq_qq, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura S1. Gráficos Cuantil-Cuantil Ítems (intervalos de confianza en naranjo)", fig.height=14, message=FALSE, error=T}
+par(mfrow=c(8,4),mai=c(0.5,0.5,0.5,0))
+for (k in 1:length(meas_model)) {
+         car::qqPlot(meas_model[,k], col = "skyblue4",  main = names(meas_model)[k],xlab="Cuartiles Teóricos", ylab="Cuartiles Empíricos",id=F, col.lines="orange")
+}
+```
+
+<br>
+
+Para poder ver la relación entre las respuestas entregadas, se generó una matriz de correlaciones policóricas que asume la naturaleza ordinal de las variables. Se estimaron sólo para aquellas observaciones que no tuvieran datos perdidos (`complete.obs`). Esta matriz estandariza las variables (particularmente importante cuando los ítems no tienen las mismas escalas de medición) [@fox2019package].
+
+<br>
+
+```{r ggcorplot, echo=T, cache= T, paged.print=TRUE, warning=F, dpi=320, fig.align="left",fig.cap="Figura 1. Matriz de Correlaciones Policóricas",error=T}
+#<div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:600px; overflow-x: scroll; width:100%;">
+
+require(polycor)
+#max-height:150%; overflow: scroll;
+#Computes a heterogenous correlation matrix, consisting of Pearson product-moment correlations between numeric variables, polyserial correlations between numeric and ordinal variables, and polychoric correlations between ordinal variables.
+
+meas_model_original<-encuesta_rec %>%dplyr::mutate_at(.vars=vars(comp_sos_1:superv_3),.funs = list(`num_sm`=~as.numeric(.)))%>%  dplyr::select(ends_with("num_sm")) 
+
+hetcor_mat<-hetcor(dplyr::select(encuesta_rec,comp_sos_1:superv_3), ML = T, std.err = T, use="complete.obs", bins=4, pd=TRUE)#smooth
+
+# https://www.r-bloggers.com/2020/08/interactive-correlation-plot/
+
+hetcor_mat_meas_mod_df<-
+reshape2::melt(tibble::as_tibble(hetcor_mat$correlations,rownames = "rowname")) %>% 
+  dplyr::left_join(melt(tibble::as_tibble(hetcor_mat$tests,rownames = "rowname")),by=c("rowname","variable"))%>%
+  dplyr::rename("Var1"="rowname", "Var2"="variable", "corr"="value.x", "pval"="value.y") %>% 
+  dplyr::mutate(Var1=factor(Var1, levels=paste0(var_labels_df[12:41,]$x,""))) %>% 
+  dplyr::mutate(Var2=factor(Var2, levels=paste0(var_labels_df[12:41,]$x,""))) %>% 
+  dplyr::left_join(dplyr::mutate(var_labels_df[12:41,],vars=paste0(x,"")), by=c("Var1"="vars")) %>% 
+  dplyr::left_join(dplyr::mutate(var_labels_df[12:41,],vars=paste0(x,"")), by=c("Var2"="vars")) %>%
+  dplyr::select(-x.x, -x.y) %>% 
+  dplyr::rename("Var1_lab"="V2.x", "Var2_lab"="V2.y")
+
+pd1 <- hetcor_mat_meas_mod_df %>% 
+  dplyr::mutate(data_id = paste0(Var1, '-', Var2),
+         tooltip = paste0('Y: ',Var1_lab, '<br>', 'X: ',Var2_lab, '<br>Rho: ', round(as.numeric(corr), 2), 
+                          '<br>p', ifelse(pval<.001,"<0.001",paste0("=",sprintf("%.4f",pval)))))
+
+p1 <- ggplot(pd1) +
+  geom_tile_interactive(aes(Var2,Var1, fill = corr,
+                            tooltip = tooltip
+                            ), color = "gray")  +
+  scale_fill_gradient2(low = "#E46726", high = "#6D9EC1",
+                       mid = "white", midpoint = 0, limit = c(-1, 1), space = "Lab",
+                       name = "Corr") +
+  geom_text(mapping = aes(x = Var1, y = Var2, label = round(corr, 2)), size = 1.25) +
+  ggplot2::coord_fixed() +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())+
+  theme(axis.text.y = element_blank())+
+  guides(fill = FALSE) +
+  xlab("") + ylab("")
+girafe(ggobj = p1)
+```
+
+<br>
+
+```{r unidim_total, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+
+cbind.data.frame(Modelos=c("Total de preguntas"),
+                 rbind(psych::unidim(meas_model_original,cor= "poly")$uni))%>% 
+  dplyr::select(`Modelos`,`u`,`Unidim.A`,`alpha`,`av.r`,`median.r`) %>% 
+  dplyr::mutate_if(is.numeric, round, 2) %>% 
+   knitr::kable(.,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Unidimensionalidad, Modelo de medida"),
+               col.names = c("Modelos","Undimiensionalidad Cruda","Unidimensionalidad Ajustada","Alfa estandarizado","Promedio de la Correlación entre ítems (ICC)", "Mediana de la correlación entre ítems (ICC)"),
+align =c('l',rep('c', 101)))%>%
+  kableExtra::kable_classic() %>% 
+    #kableExtra::add_footnote(c("Nota. Los ítems son")), notation = "none")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 13)  
+  
+# When finding pairwise correlations, should we use the global values of the tau parameter (which is somewhat faster), or the local values (global=FALSE)? The local option is equivalent to the polycor solution, or to doing one correlation at a time. global=TRUE borrows information for one item pair from the other pairs using those item's frequencies. This will make a difference in the presence of lots of missing data. With very small sample sizes with global=FALSE and correct=TRUE, the function will fail (for as yet underdetermined reasons.
+
+##Koo and Li (2016) gives the following suggestion for interpreting ICC (Koo and Li 2016):
+#below 0.50: poor
+#between 0.50 and 0.75: moderate
+#between 0.75 and 0.90: good
+#above 0.90: excellent
+```
+
+A partir de la tabla anterior, se observa una alta unidimensionalidad, pero una discreta correlación intraclase. Téngase en cuenta que este es un análisis preliminar.
+
+<br>
+
+### Análisis Factorial Exploratorio (AFE)
+
+El análisis exploratorio utilizó la matriz de correlaciones policóricas especificada al principio. El objetivo fue identificar el número y composición de los factores comunes (variables latentes) necesarios para explicar la varianza común del conjunto de ítems, por lo que se incluye la comunalidad y la unicidad. Para determinar el número óptimo de factores interpretables (el número de factores cuya solución se ajuste mejor a los datos), se utilizó el criterio VSS (criterio de estructura más simple) y el MAP (mínimo parcial promedio o minimum average partial) de Velicer. Dicho criterio compara las cargas factoriales bajas, en comparación al modelo más simple, y a la vez considera la cantidad de casos. Para el presente modelo que asume observaciones completas en variables de salud mental, se estiman `r nrow(meas_model_original[complete.cases(meas_model_original),])` casos.
+
+
+```{r info_2_items_por_factor, echo = FALSE, eval = F, include= F}
+#### It is possible to retain a factor with only two items if the items are highly correlated (i.e., r > .70) and relatively uncorrelated with other variables. Worthington, R. L., & Whittaker, T. A. (2006, p 821).
+#### Treiblmaier H, Filzmoser P. Exploratory factor analysis revisited: how robust methods support the detection of hidden multivariate data structures in IS research. Inf Manag. 2010;47(4):197–207.
+#### However, after the first step in the analysis, communalities are defined as sums of squared factor loadings, and the estimation of communalities with a set of factor loadings that can do a reasonably good job of reproducing the entire R correlation matrix typically requires multiple iterations in PAF
+#### PAF (i.e., trying to understand the shared variance in a set of X measurements through a small set of latent variables called factors) may be more convenient than the mathematically simpler PC approach (which sets out to represent all of the variance in the X variables through a small set of components).
+
+### Accordingly, oblique rotation presents more variability, and Oblimin and Promax are the most frequently used.
+
+### Izquierdo I, Olea J, Abad FJ. Exploratory factor analysis in validation studies: uses and recommendations. Psicothema. 2014;26(3):395-400. doi: 10.7334/psicothema2013.349. PMID: 25069561.
+```
+
+<br>
+
+Teniendo en cuenta el origen de los ítems, se compararon las estructuras de modelos que admitían desde 1 a 12 factores. Es necesario tener en consideración de que en ciencias sociales y en salud mental, muchas de las variables latentes a pesquisar podrían estar correlacionadas entre ellas, por lo que nunca serían del todo ortogonales en la práctica. Por dicha razón, se añadió una comparación considerando una rotación oblicua para efectos de este análisis.  Por otra parte, reducir el número de ítems no es el objetivo primario del análisis, por lo que se descartó una rotación de tipo ortogonal, aunque la interpretación de sus cargas factoriales tienda a ser más simple que mediante una solución oblicua. Por último, se utilizó el método de extracción correspondiente a Factorización de Ejes Principales (Principal Axis Factoring), un método comunmente utilizado que no requiere cumplir con el supuesto de normalidad multivariada. El objetivo es conseguir la mejor estimación posible de las comunalidades a partir del número de factores retenidos [@Lloret-Segura2014; @Osborne2008; @Izquierdo2014]. 
+
+<br>
+
+```{r vss_tot_1, echo = FALSE, eval = F, results = "hide"}
+# Anna B. Costello and Jason W. Osborne. 2005. Best practices in exploratory factor analysis: Four recommendations for getting the most from your analysis. Pract. Assess. Res. Eval. 10, 7 (2005), 1–9. Retrieved from http://pareonline.net/getvn.asp?v=10&n=7. 
+
+# John K. Sakaluk and Stephen D. Short. 2017. A methodological review of exploratory factor analysis in sexuality research: Used practices, best practices, and data analysis resources. J. Sex Res. 54, 1 (2017), 1–9. DOI: https://doi.org/10.1080/00224499.2015.1137538 
+
+# Roger L. Worthington and Tiffany A. Whittaker. 2006. Scale development research. Counsel. Psychol. 34, 6 ( Nov. 2006), 806–838. DOI: https://doi.org/10.1177/0011000006288127 
+
+# Lloret-Segura, Susana, Ferreres-Traver, Adoración, Hernández-Baeza, Ana, & Tomás-Marco, Inés. (2014). El Análisis Factorial Exploratorio de los Ítems: una guía práctica, revisada y actualizada. Anales de Psicología, 30(3), 1151-1169. https://dx.doi.org/10.6018/analesps.30.3.199361
+
+#_#_#_#_#_#_#_#_#_#_#
+#_#_#_#_#_#_#_#_#_#_#
+
+#Chi Square rule #1: Extracting factors until the chi square of the residual matrix is not significant.
+
+#Chi Square rule #2: Extracting factors until the change in chi square from factor n to factor n+1 is not significant. Parallel Analysis: Extracting factors until the eigen values of the real data are less than the corresponding eigen values of a random data set of the same size.
+
+#Scree Test: Plotting the magnitude of the successive eigen values and applying the scree test (a sudden drop in eigen values analogous to the change in slope seen when scrambling up the talus slope of a mountain and approaching the rock face).
+
+#Eigen Value of 1 rule: Extracting principal components until the eigen value <1.
+#Meaning: Extracting factors as long as they are interpetable.
+
+#VSS: Using the Very Simple Structure Criterion.
+
+#:#:#:#:#:#:#:#:#:#:#:
+
+invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
+
+# Parallel analysis has been well documented to be a robust and accurate method for determining the number of factors to retain. Results from various studies have demonstrated that parallel analysis performed better than the widely used eigenvalue-greater-than-1.0 rule, the scree test, the maximum likelihood method, and the chi-square test
+
+# Liu, O. L., & Rijmen, F. (2008). A modified procedure for parallel analysis of ordered categorical data. Behavior Research Methods, 40(2), 556–562. doi:10.3758/brm.40.2.556 
+```
+
+<div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:600px; overflow-x: scroll; width:100%">
+```{r vss_tot_2, echo=T, cache= T, paged.print=TRUE, warning=F,fig.align="center",fig.cap="Figura 3. Estructura Simple Matriz Policórica",error=T}
+#Each of the procedures has its advantages and disadvantages. Using either the chi square test or the change in square test is, of course, sensitive to the number of subjects and leads to the nonsensical condition that if one wants to find many factors, one simply runs more subjects. Parallel analysis is partially sensitive to sample size in that for large samples the eigen values of random factors will be very small. The scree test is quite appealling but can lead to differences of interpretation as to when the scree "breaks". The eigen value of 1 rule, although the default for many programs, seems to be a rough way of dividing the number of variables by 3. Extracting interpretable factors means that the number of factors reflects the investigators creativity more than the data. VSS, while very simple to understand, will not work very well if the data are very factorially complex. (Simulations suggests it will work fine if the complexities of some of the items are no more than 2).
+
+vss(hetcor_mat$correlations, n=12,n.obs=nrow(meas_model_original[complete.cases(meas_model_original),]), use="complete cases", rotate="oblimin", cor= "poly", fm="pa", plot=F)
+vss(hetcor_mat$correlations, n=12,n.obs=nrow(meas_model_original[complete.cases(meas_model_original),]), use="complete cases", rotate="oblimin",cor= "poly", fm="pa", plot=T,title="Estructura Muy Simple, \nFactrización de Eje Principales, Rotación Oblicua")
+
+invisible(c("Haciéndolo con todos los datos estandarizados"))
+#vss(data.matrix(dim_sm_p345_original) %>%  standardize(), n=6,n.obs=nrow(dim_sm_p345_original[complete.cases(dim_sm_p345_original),]), use="complete cases", rotate="oblimin",cor= "poly", fm="pa", plot=T,title="Estructura Muy Simple, \nFactrización de Eje Principales, Rotación Oblicua")
+
+invisible(c("Haciéndolo con todos la matriz policórica obtenida por el paquete hetcor"))
+#vss(hetcor_mat$correlations, n=6,n.obs=nrow(dim_sm_p345_original[complete.cases(dim_sm_p345_original),]), use="complete cases", fm="pa", plot=T,title="Estructura Muy Simple, \nFactrización de Eje Principales, Rotación Oblicua")
+
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#FUENTES:
+
+# https://stats.stackexchange.com/questions/32669/vss-criterion-for-the-number-of-factors-in-rs-psych-package
+# http://search.r-project.org/R/library/psych/html/VSS.html
+# https://it.unt.edu/sites/default/files/vss_l_jds_dec2014.pdf
+# http://dwoll.de/rexrepos/posts/multFApoly.html
+#n is the maximum number of factors to extract  (default is 8)
+#rotate is a string "none" or "varimax" for type of rotation (default is "none"
+#:#:#:#:#:#:
+#How to find the correlations: "cor" is Pearson", "cov" is covariance, "tet" is tetrachoric, "poly" is polychoric, "mixed" uses mixed cor for a mixture of tetrachorics, polychorics, Pearsons, biserials, and polyserials, Yuleb is Yulebonett, Yuleq and YuleY are the obvious Yule coefficients as appropriate
+
+# It will produce normal factor analysis output but also will save the polychoric matrix (rho) and items difficulties (tau) for subsequent irt analyses.
+
+#FUENTES
+## http://www.psicothema.com/pdf/4206.pdf
+```
+</div>
+
+<br>
+
+A partir de los resultados expuestos, el criterio VSS establece claramente que el modelo de un factor parece bastante razonable, al igual que el MAP (Ruscio & Roche, 2012). De todas formas, un criterio no absoluto (relativo) como el BIC establece que los datos podrían perfectamente ajustarse a una estructura factorial de 4 factores [@Cattell1966].
+
+<br>
+
+```{r rpoly_pa_tot, echo=T, cache= T, paged.print=TRUE, warning=F,fig.align="center",fig.cap="Figura 3. Gráfico de Codo de Catell,  Matriz Policórica",error=T}
+VSS.scree(hetcor_mat$correlations, main="")
+#Es tal vez la técnica más utilizada. El aporte se mide con los valores propios, que representan el total de varianza explicada por el factor. El criterio utilizado para su uso se basa en tomar para el análisis solo aquellos factores que tengan valores propios mayores a 1
+# Al igual que en el criterio anterior, depende de los valores propios, pero se diferencia porque los valores son graficados y se hace un análisis visual buscando en la curva un punto de inflexión donde esta cambie de sentido o de concavidad. Un problema que puede llegar a presentar es ser muy subjetivo y, por lo tanto, depender básicamente del criterio del investigador. No se recomienda cuando el número de variables en análisis es muy alto y la contribución de los nuevos ítems es similar 
+
+# Méndez Martínez, Carolina, & Rondón Sepúlveda, Martín Alonso. (2012). Introducción al análisis factorial exploratorio. Revista Colombiana de Psiquiatría, 41(1), 197-207. Retrieved February 24, 2021, from http://www.scielo.org.co/scielo.php?script=sci_arttext&pid=S0034-74502012000100014&lng=en&tlng=es.
+
+```
+
+<br>
+
+Lo anterior se corroboró mediante un gráfico de codo simple, el cual arrojó valores propios (eigenvalues) superiores a 1 exclusivamente para el modelo que asumió 1 factor. Adicionalmente, se generó un análisis mediante otro programa (`random.polychor.pa`), el que permite comparar distintos distintas cantidades de variables latentes, en base a matrices policóricas simuladas. Una comparación de los valores únicos de la muestra permite comparar cuáles superan a los datos aleatorios. Se generaron 500 muestras aleatorias, el programa trabaja sólo con casos completos y sólo se consideran factores no-aleatorios los que superan el percentil 99 [@Presaghi2015].
+
+<br>
+
+```{r random_polychor_pa_tot, echo=T, cache= T, paged.print=TRUE, warning=F,fig.align="center",fig.cap="Figura 4. Gráfico de Codo,  Matriz Policórica",error=T, fig.height=10, eval= T}
+# Presaghi, Fabio & Desimoni, Marta. (2015). Title A Parallel Analysis With Polychoric Correlation Matrices. 10.13140/RG.2.1.4380.2640. 
+
+random.polychor.pa(data.matrix=data.matrix(meas_model_original), nrep=500, q.eigen=0.99, r.seed=1234)
+#This means that the function guarantees that the empirical and the simulated data matrix are similar, but this also means that by changing the sample of participants the simulated data will change (even if slightly).
+
+#The function will extract the eigenvalues from each randomly generated polychoric matrices and the requested percentile is returned. Eigenvalues from polychoric correlation matrix obtained from real data is also compute and compared, in a (scree) plot, with the eigenvalues extracted from the simulation (Polychoric matrices). Recently, Cho, Li & Bandalos (2009) showed that, in using PA method, it is important to match the type of the correlation matrix used to recover the eigenvalues from real data with the type of correlation matrix used to estimate random eigenvalues. Crossing the type of correlations (using Polychoric correlation matrix to estimate real eigenvalues and random simulated Pearson correlation matrices) may result in a wrong decision (i.e., retaining more non-random factors than the needed). A comparison with eigenvalues extracted from both randomly simulated Pearson correlation matrices and real data is also included. Finally, for both type of correlation matrix (Polychoric vs Pearson), the two versions (the classic squared coefficient and the 4th power coefficient) of Velicer's MAP criterion are calculated (Velicer, 1976; Velicer, Eaton, & Fava, 2000) by implementing under R the code released by O'Connor (2000) for SPSS, SAS and MATLAB. As the poly.mat() function used to calculate the polychoric correlation matrix is going to be deprecated in favour of polychoric() function, the random.polychor.pa was consequently updated (version 1.1.2) to account for changes in psych() package.
+
+#FUENTE:
+### https://www.rdocumentation.org/packages/random.polychor.pa/versions/1.1.3.1/topics/random.polychor.pa
+### https://stats.stackexchange.com/questions/31948/looking-for-a-step-through-an-example-of-a-factor-analysis-on-dichotomous-data
+
+#:#:#::#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+invisible("IMPORTANTE PENSAR QUE NO SE SI LA CORRECCIÖN DE CONTINUIDAD QUE USA HETCOR VALE CONSERVARLA")
+#https://stackoverflow.com/questions/59167406/hetcor-can-one-add-a-correction-for-continuity
+#https://stackoverflow.com/questions/59167406/hetcor-can-one-add-a-correction-for-continuity
+
+#The continuity parameter is passed to polychoric() function to handle the correction for continuity. In polychoric() function this correction for continuity is set by default to .5 (i.e. correct=TRUE). However in some cases this correction for continuity causes the polychorich() function to stop unexpectedly and consequently also random.polychor.pa() stops. So we added this parameter to allow users to bypass this problem. This parameter is set by default to 0.0 (i.e., no correction for continuity applied) and user may add the correction for continuity by setting the value to 0.5.
+
+#random.polychor.pa(data.matrix=data.matrix(dim_sm_p345), nrep=500, q.eigen=0.99, r.seed=1234,continuity=0.5)
+
+#this parameter allows to choose between uniform (that is also the default) or multinomial distribution for the simulation of random data sets.
+```
+
+<br>
+
+A partir de la Tabla anterior, se encontró que una solución de 5 y 4 subdimensiones también es razonable. De todas formas, se compararon los índices de ajuste de distintas soluciones factoriales, que asumen desde 1 hasta 12 variables latentes.
+
+<br>
+
+```{r fa_par, echo=T, error=T, warning=FALSE, cache=TRUE, paged.print=TRUE}
+fa.parallel(polychoric(data.matrix(dplyr::select(encuesta_rec,comp_sos_1:superv_3)))$rho, fm="pa", fa="fa", main = "Scree Plot",n.obs=nrow(meas_model_original[complete.cases(meas_model_original),]), plot=F)
+```
+
+<br>
+
+```{r fa_sm_0_comp_modelos, echo=T, error=T, warning=FALSE, cache=TRUE, paged.print=TRUE}
+  library(psych)
+ library(GPArotation)
+ library(dplyr)
+ library(plyr)
+ library(knitr)
+
+ efas <- list()
+
+ for (i in 1:12) {
+     fitn <- psych::fa(meas_model_original,
+          nfactors= i, 
+          cor= "poly", 
+          fm= "pa", 
+          use="complete.obs", 
+          n.obs= nrow(meas_model_original[complete.cases(meas_model_original),]),
+          #n.iter=500, 
+          rotate="oblimin")
+     efas[[i]] <- data.frame(fitn$TLI, fitn$RMSEA[1], fitn$RMSEA[2], fitn$RMSEA[3], fitn$rms, fitn$BIC) %>% 
+     mutate(Factors = i,
+            RMSEA_ci = paste0(sprintf("%2.2f", fitn.RMSEA.2.),", ",sprintf("%2.2f", fitn.RMSEA.3.))) %>% 
+     dplyr::rename(TLI = fitn.TLI,
+            RMSEA = fitn.RMSEA.1.,
+            "RMSEA CI90%" = RMSEA_ci,
+            SRMR = fitn.rms, 
+            BIC = fitn.BIC) %>% 
+     dplyr::select(Factors, TLI, RMSEA, "RMSEA CI90%", SRMR, BIC)
+     }
+
+do.call("rbind", efas)  %>%
+   data.table::data.table(keep.rownames = F) %>% 
+   dplyr::mutate_at(c(2,3,5),~round(as.numeric(.),2)) %>% 
+   dplyr::mutate_at(c(6),~round(as.numeric(.),0)) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Comparación de Índices de Ajuste, Preguntas sobre Salud Mental"),
+               #col.names = c("Prueba","Estadistico","Valor p","Normalidad"),
+align =c('l',rep('c', 101)))%>%
+    kableExtra::add_footnote(c("Nota. TLI= Tucker-Lewis Index; RMSEA= Root Mean Square Error of Approximation; SRMR= Standardized Root Mean Residual; BIC= Bayesian Information Criterion"), notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12)
+```
+
+<br>
+
+El error anterior nos muestra que deja de ser operacionalmente factible asumir más de 6 variables latentes (es necesario considerar que la prueba contrastada se compone de 13 ítems). A partir de la tabla anterior, el modelo que exhibe mejores índices de ajuste es el que asume 6 factores, seguido por el de 5. De todas formas, analizaremos las cargas factoriales. Atendiendo a que algunas variables latentes podrían estar compuestas sólo por 2 ítems, se hace mucho más necesario contar con mayores cargas factoriales por la variable de interés, sumado a menores cagas factoriales cruzadas [@Treiblmaier2010].
+
+<br>
+
+```{r fa_sm_1, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+invisible("Las páginas recomiendan no hacerlo con la matri de correlaciones. asta con la numérica")
+
+modelo_10_factores <-
+psych::fa(meas_model_original,
+          nfactors= 10, 
+          cor= "poly", 
+          fm= "pa", 
+          use="complete.obs", 
+          n.obs= nrow(meas_model_original[complete.cases(meas_model_original),]),
+          n.iter=500, 
+          rotate="oblimin")
+
+modelo_4_factores <-
+psych::fa(meas_model_original,
+          nfactors= 4, 
+          cor= "poly", 
+          fm= "pa", 
+          use="complete.obs", 
+          n.obs= nrow(meas_model_original[complete.cases(meas_model_original),]),
+          n.iter=500, 
+          rotate="oblimin")
+
+#En el caso de las rotaciones oblicuas, se parte del supuesto de correlación entre los nuevos factores, que en la vida real es el escenario más común, lo que conduce a que las ponderaciones calculadas no coincidan con las correlaciones entre el factor y la variable. Dentro de los métodos de rotación oblicua más utilizados se encuentran el oblimin y el promax. La rotación oblimin permite establecer relaciones jerárquicas entre los factores, para lo cual debe establecer el grado de inclinación (δ) entre ellos. Un valor δ de cero da las rotaciones más oblicuas (3,5).
+
+#En cuanto a la rotación promax, modifica los resultados de una rotación ortogonal hasta crear una solución con cargas factoriales lo más próximas posible a la "estructura ideal". Para ello, eleva las cargas factoriales obtenidas en una rotación ortogonal a una determinada potencia (conocida como κ). En general, los valores de κ se encuentran entre 2 y 4, pero, a mayor potencia, mayor oblicuidad en la solución (el valor de κ más común es de 4) (3,5).
+
+# Méndez Martínez, Carolina, & Rondón Sepúlveda, Martín Alonso. (2012). Introducción al análisis factorial exploratorio. Revista Colombiana de Psiquiatría, 41(1), 197-207. Retrieved February 24, 2021, from http://www.scielo.org.co/scielo.php?script=sci_arttext&pid=S0034-74502012000100014&lng=en&tlng=es.
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+# The Root Mean Square Error of Approximation (RMSEA) provides information as to how well the model, with unknown but optimally chosen parameter estimates, would fit the population covariance matrix (Byrne, 1998).
+# One of its key advantages is that the RMSEA calculates confidence intervals around its value.
+# Values below .060 indicate close fit (Hu & Bentler, 1999). Values up to .080 are commonly accepted as adequate.
+# The Standardized Root Mean Residual (SRMR) is the square root of the difference between the residuals of the sample covariance matrix and the hypothesized covariance model.
+# As SRMR is standardized, its values range between 0 and 1. Commonly, models with values below .05 threshold are considered to indicate good fit (Byrne, 1998). Also, values up to .08 are acceptable (Hu & Bentler, 1999).
+# TLI’s values may fall below zero or be above one (Hair et al., 2013). For CFI and TLI values above .95 are indicative of good fit (Hu & Bentler, 1999). In practice, CFI and TLI values from .90 to .95 are considered acceptable.
+
+
+#Hair, R. D., Black, W. C., Babin, B. J., Anderson, R. E., & Tatham, R. L. (2013). Multivariate data analysis. Englewood Cliffs, NJ: Prentice–Hall.
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+# Situaciones en que las saturaciones sean bajas (menor de .40) y el número de ítems por factor también sea bajo (3 ítems) requieren tamaños muestrales mayores para tener alguna garantía de generalización de los resultados. Como es habitual utilizar muestras de conveniencia hay que tener en cuenta dos problemas: la no-representatividad y la atenuación por restricción de rango.
+# Lloret-Segura, Susana, Ferreres-Traver, Adoración, Hernández-Baeza, Ana, & Tomás-Marco, Inés. (2014). El Análisis Factorial Exploratorio de los Ítems: una guía práctica, revisada y actualizada. Anales de Psicología, 30(3), 1151-1169. https://dx.doi.org/10.6018/analesps.30.3.199361
+
+modelo_cargas_fac <-
+data.frame(matrix(as.numeric(loadings(modelo_10_factores)), attributes(loadings(modelo_10_factores))$dim, dimnames=attributes(loadings(modelo_10_factores))$dimnames))%>%
+  dplyr::mutate_at(1:dim(loadings(modelo_10_factores))[2], ~round(as.numeric(.),2)) %>% 
+  dplyr::mutate_at(1:dim(loadings(modelo_10_factores))[2], ~ifelse(.<.3,"-",as.character(.))) %>% 
+  data.table::data.table(keep.rownames = T) %>% 
+  dplyr::mutate(Var1=factor(rn, levels=paste0(var_labels_df[12:41,]$x,"_num_sm"),labels=var_labels_df[12:41,]$V2))%>% 
+  dplyr::select("Var1",paste0("PA",1:attributes(loadings(modelo_10_factores))$dim[2])) 
+
+
+colnames(modelo_cargas_fac)<- c("Vars",paste0(paste0("PA",1:attributes(loadings(modelo_10_factores))$dim[2]),"\nR$^{2}$",round(modelo_10_factores$R2,2)))
+
+modelo_cargas_fac %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Cargas factoriales, Modelo de 10 factores Total de Preguntas"),
+               escape = T,
+               #col.names = c("Prueba","Estadistico","Valor p","Normalidad"),
+align =c('l',rep('c', 101)))%>%
+  kableExtra::add_footnote(c("Nota. Se omiten cargas factoriales menores a .3"), notation = "none")%>% 
+  kableExtra::kable_classic() %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12)
+```
+
+<br>
+
+**Cuidado**: Si bien las interpretaciones aquí planteadas están formuladas en términos positivos, también pueden interpretarse en términos negativos (falta, ausencia, etc.) o inversamente proporcionales (a mayor uno, menor otro).
+
+De acuerdo a lo observado en la tabla anterior, el Compromiso Sostenible no se observa como una dimensión íntegra.  No obstante, se desprende la relación que tiene el confiar en las decisiones de los directivos, la comidad con los valores de la empresa y recomendarla como un buen lugar para trabajar. El segundo factor detectado podría denominarse Supervisión aunque el primer ítem de Gestión del Desempeño tiende a confundirse con esta dimensión, al igual que el primer ítem de Entorno de trabajo. De lo anterior se desprende que una preocupación por parte del responsable directo y recibir feedback sobre su rendimiento tienen a relacionarse fuertemente con esta dimensión. La tercera subdimensión abarca COVID-19 en su totalidad, aunque se observa cuierta confusión con el segundo ítem de Entorno de trabajo. De lo anterior se desprende que en la percepción de la protección de los empleados por COVID-19 se asocian fuertemente a los valores que se perciben de la empresa. La cuarta subdimensión engloba principalmente el Desarrollo profesional, salvo por el primer ítem, más el cuarto ítem de Compromiso sostenible. De ello se desprende que teniendo la información necesaria para hacer bien el trabajo y percibiendo que la empresa reconoce la excelencia del rendimiento, se relaciona con disponer las herramientas y recursos para lograr la excelencia, se relaciona con la formación recibida y las oportunidades percibidas para recibirla. La quinta subdimensión identifica la dimensión de Compensaciones y benedificos, las que se ven contaminados por el primer ítem de Comunicación y el último de Compromiso sostenible. Se desprende que el mantener la energía durante la jornada laboral y percibir que en la empresa se hacen esfuerzos suficientes por conocer las opinionese ideas de los empleados se relaciona fuertemente con una percepción favorable del programa de beneficios sociales y percibir una remuneración competitiva. La sexta subdimensión aludiría a preguntas sobre Compromiso sostenible relacionadas con la definiciones de roles, la oportunidad de nuevos desafíos y la percepción de autorrealización en el trabajo. Conceptualmente es difícil de interpretar, aunque podría descartarse el primer ítem por estar bastante confundido con otra subdimensión. La séptima subdimenión apunta a entender la contribución que hace el trabjo y la disposición y el compromiso a la empresa, aunque la primera confundido fuertemente por la definición de roles.
+
+<br>
+
+Al margen de esto, téngase en cuenta que este modelo tiene malos niveles de ajuste
+
+<br>
+
+```{r fa_sm_2, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+
+modelo_cargas_fac2 <-
+data.frame(matrix(as.numeric(loadings(modelo_4_factores)), attributes(loadings(modelo_4_factores))$dim, dimnames=attributes(loadings(modelo_4_factores))$dimnames))%>%
+  dplyr::mutate_at(1:dim(loadings(modelo_4_factores))[2], ~round(as.numeric(.),2)) %>% 
+  dplyr::mutate_at(1:dim(loadings(modelo_4_factores))[2], ~ifelse(.<.3,"-",as.character(.))) %>%  data.table::data.table(keep.rownames = T) %>% 
+  dplyr::mutate(Var1=factor(rn, levels=paste0(var_labels_df[12:41,]$x,"_num_sm"),labels=var_labels_df[12:41,]$V2))%>% 
+  dplyr::mutate(rn=gsub("*_[1-9]_.*","",rn)) %>% 
+  dplyr::select("Var1","rn",paste0("PA",1:attributes(loadings(modelo_4_factores))$dim[2])) 
+
+
+colnames(modelo_cargas_fac2)<- c("Vars","cod",paste0(paste0("PA",1:attributes(loadings(modelo_4_factores))$dim[2]),"\nR$^{2}$=",round(modelo_4_factores$R2,2)))
+
+modelo_cargas_fac2 %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Cargas factoriales, Modelo de 4 factores Total de Preguntas"),
+               #col.names = c("Prueba","Estadistico","Valor p","Normalidad"),
+               escape=F,
+align =c('l',rep('c', 101)))%>%
+    kableExtra::add_footnote(c("Nota. Se omiten cargas factoriales menores a .3"), notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12)
+
+#Para hacer esta evaluación desde el punto de vista estadístico se recurre a la significancia de las ponderaciones, así: valores menores a |0,3| se consideran no significativos; entre |0,3| y |0,5|, de aporte mínimo; entre |0,5| y |0,7|, de aporte significativo, y valores mayores a |0,7| son consideradas relevantes y, generalmente, son el objetivo del análisis. Sin embargo, es frecuente que en ocasiones valores mayores a |0,3| también sean considerados para los análisis (2,3,5).
+```
+
+<br>
+
+En vista de lo obtenido en la tabla anterior, se puede colegir que la primera dimensión hace alusión a la identificación con la empresa, proyección en ella, involucramiento y en cierta medida, claridad de roles. Un hallazgo importante es que la percepción de contar con recursos necesarios para hacer el trabajo tiene mucha relación con la formación recibida y las oportunidades de recibirla (PA1). Esta subdimensión está algo contaminada por la tercera subdimensión en las preguntas que aluden a la confianza en directores y comodidad con valores de la empresa, que se explicará adelante. Adicionalmente, la formación se relaciona con el reconocimiento recibido y la información para hacer el trabajo (PA4). Un caso especial es la pregunta de si la empresa hace esfuerzos por conocer las opiniones e ideas de los empleados, ya que se relaciona fuertemente con la dimensión asociada a la identidad valórica. Sobre esta última (PA3), está integrada por la capacidad desiderativa, valórica y a su vez relacionada con el contexto COVID-19, con preguntas que aluden principalmente a la empresa en general. Por último, la segunda dimensión (PA2), a diferencia de la anterior, se enfoca en la relación con el supervisor inmediato, ya sea en términos de preocupación, entrega de feedback, trabajo en equipo, reconocimiento y orientación al desarrollo.
+
+<br>
+
+<div class="superbigimage">
+```{r fa_diagram, echo=T, cache= T, paged.print=TRUE, warning=F, fig.align="left",fig.cap="Figura 5. Diagrama Factorial Exploratorio de 4 factores",error=T, fig.height=10, fig.width=15, eval= F}
+#invisible(fa.graph(modelo_6_factores))
+library(DiagrammeR) 
+gr1<-
+DiagrammeR::grViz("
+digraph Factor  {
+  rankdir=RL;
+  size='8,6';
+  node [fontname='Helvetica' fontsize=14 shape=box, width=2];
+  edge [fontname='Helvetica' fontsize=10];
+V1  [label = 'comp_sos_1_num_sm'];
+V2  [label = 'comp_sos_2_num_sm'];
+V3  [label = 'comp_sos_3_num_sm'];
+V4  [label = 'comp_sos_4_num_sm'];
+V5  [label = 'comp_sos_5_num_sm'];
+V6  [label = 'comp_sos_6_num_sm'];
+V7  [label = 'comp_sos_7_num_sm'];
+V8  [label = 'comp_sos_8_num_sm'];
+V9  [label = 'comp_sos_9_num_sm'];
+V10  [label = 'dllo_prof_1_num_sm'];
+V11  [label = 'dllo_prof_2_num_sm'];
+V12  [label = 'dllo_prof_3_num_sm'];
+V13  [label = 'lid_1_num_sm'];
+V14  [label = 'lid_2_num_sm'];
+V15  [label = 'ent_trab_1_num_sm'];
+V16  [label = 'ent_trab_2_num_sm'];
+V17  [label = 'covid_1_num_sm'];
+V18  [label = 'covid_2_num_sm'];
+V19  [label = 'covid_3_num_sm'];
+V20  [label = 'covid_4_num_sm'];
+V21  [label = 'intencion_1_num_sm'];
+V22  [label = 'com_1_num_sm'];
+V23  [label = 'com_2_num_sm'];
+V24  [label = 'ges_des_1_num_sm'];
+V25  [label = 'ges_des_2_num_sm'];
+V26  [label = 'comp_ben_1_num_sm'];
+V27  [label = 'comp_ben_2_num_sm'];
+V28  [label = 'superv_1_num_sm'];
+V29  [label = 'superv_2_num_sm'];
+V30  [label = 'superv_3_num_sm'];
+node [shape=ellipse, width ='1'];
+PA1-> V1 [ label = 0.6 ];
+PA1-> V2 [ label = 0.5 ];
+PA1-> V3 [ label = 0.7 ];
+PA1-> V5 [ label = 0.6 ];
+PA1-> V6 [ label = 0.8 ];
+PA1-> V8 [ label = 0.9 ];
+PA1-> V9 [ label = 0.5 ];
+PA1-> V10 [ label = 0.9 ];
+PA1-> V13 [ label = 0.7 ];
+PA1-> V21 [ label = 0.9 ];
+PA1-> V27 [ label = 0.4 ];
+PA2-> V7 [ label = 0.4 ];
+PA2-> V15 [ label = 0.9 ];
+PA2-> V24 [ label = 0.6 ];
+PA2-> V28 [ label = 0.9 ];
+PA2-> V29 [ label = 0.9 ];
+PA2-> V30 [ label = 0.9 ];
+PA3-> V14 [ label = 0.4 ];
+PA3-> V16 [ label = 0.4 ];
+PA3-> V17 [ label = 0.7 ];
+PA3-> V18 [ label = 0.8 ];
+PA3-> V19 [ label = 0.9 ];
+PA3-> V20 [ label = 0.7 ];
+PA3-> V22 [ label = 0.4 ];
+PA3-> V26 [ label = 0.4 ];
+PA4-> V4 [ label = 0.7 ];
+PA4-> V11 [ label = 0.7 ];
+PA4-> V12 [ label = 0.7 ];
+PA4-> V23 [ label = 0.6 ];
+PA4-> V25 [ label = 0.4 ];
+PA2 -> PA1 [ label = 0.6 , dir='both' ];
+PA3 -> PA1 [ label = 0.7 , dir='both' ];
+PA3 -> PA2 [ label = 0.6 , dir='both' ];
+PA4 -> PA1 [ label = 0.8 , dir='both' ];
+PA4 -> PA2 [ label = 0.6 , dir='both' ];
+PA4 -> PA3 [ label = 0.6 , dir='both' ];
+{ rank=same;
+V1;V2;V3;V4;V5;V6;V7;V8;V9;V10;V11;V12;V13;V14;V15;V16;V17;V18;V19;V20;V21;V22;V23;V24;V25;V26;V27;V28;V29;V30;}{ rank=same;
+PA1;PA2;PA3;PA4;}}
+"
+)
+
+gr1
+```
+</div>
+
+<br>
+
+
+### Análisis Factorial Confirmatorio (AFC)
+
+#### 1 factor
+
+El AFC se caracteriza por permitir al investigador definir cuántos factores espera, qué factores están relacionados entre sí, y qué ítems están relacionados con cada factor [@Kline2013]. El foco está puesto en los ítems y en qué medida se responden de manera similar. Decidimos comparar los índices de ajuste de múltiples especificaciones. El estimador utilizado para el análisis factorial es el "WLSMV" (Mínimos cuadrados ponderados diagonalmente), el cual es robusto a anormalidad y es especialmente recomendado para variables ordinales que violan los supuestos de anormalidad multivariada, especialmente en muestras mayores a 200 [@Li2016].
+
+<br>
+
+```{r afc_sm_1, echo = T, eval = T}
+library(lavaan)  
+library(semPlot)
+library(semTools)
+  # Latent variables
+#dplyr::select(encuesta_rec, comp_sos_1:superv_3)
+
+ #"comp_sos_1_num_sm"  "comp_sos_2_num_sm"  "comp_sos_3_num_sm"  "comp_sos_4_num_sm"  "comp_sos_5_num_sm"  "comp_sos_6_num_sm"  "comp_sos_7_num_sm"  "comp_sos_8_num_sm"  "comp_sos_9_num_sm" "dllo_prof_1_num_sm" "dllo_prof_2_num_sm" "dllo_prof_3_num_sm" "lid_1_num_sm"       "lid_2_num_sm"       "ent_trab_1_num_sm"  "ent_trab_2_num_sm"  "covid_1_num_sm"     "covid_2_num_sm"    "covid_3_num_sm"     "covid_4_num_sm"     "intencion_1_num_sm" "com_1_num_sm"       "com_2_num_sm"       "ges_des_1_num_sm"   "ges_des_2_num_sm"   "comp_ben_1_num_sm"  "comp_ben_2_num_sm" "superv_1_num_sm"    "superv_2_num_sm"    "superv_3_num_sm"   
+  
+tot_1f_inicial_form <- "
+total =~  comp_sos_1_num_sm+  comp_sos_2_num_sm+  comp_sos_3_num_sm+  comp_sos_4_num_sm+ comp_sos_5_num_sm+  comp_sos_6_num_sm+ comp_sos_7_num_sm+ comp_sos_8_num_sm+  comp_sos_9_num_sm+ dllo_prof_1_num_sm+  dllo_prof_2_num_sm+ dllo_prof_3_num_sm+  lid_1_num_sm+ lid_2_num_sm+ ent_trab_1_num_sm+ ent_trab_2_num_sm+ covid_1_num_sm+ covid_2_num_sm+ covid_3_num_sm+ covid_4_num_sm+ intencion_1_num_sm+ com_1_num_sm+ com_2_num_sm+ ges_des_1_num_sm+ ges_des_2_num_sm+ comp_ben_1_num_sm+ comp_ben_2_num_sm+ superv_1_num_sm+ superv_2_num_sm+ superv_3_num_sm
+"
+tot_4f_inicial_form <- "
+fa1 =~  comp_sos_1_num_sm+  comp_sos_2_num_sm+  comp_sos_3_num_sm+  comp_sos_5_num_sm+   comp_sos_6_num_sm+ comp_sos_8_num_sm+  comp_sos_9_num_sm+ lid_1_num_sm+ intencion_1_num_sm+ comp_ben_2_num_sm
+fa2=~ comp_sos_7_num_sm+ ent_trab_1_num_sm+ ges_des_1_num_sm+ superv_1_num_sm+ superv_2_num_sm+ superv_3_num_sm
+fa3=~ lid_2_num_sm+ ent_trab_2_num_sm+ covid_1_num_sm+ covid_2_num_sm+ covid_3_num_sm+ covid_4_num_sm+ com_1_num_sm+ comp_ben_1_num_sm
+fa4=~ comp_sos_4_num_sm+ dllo_prof_1_num_sm+  dllo_prof_2_num_sm+ dllo_prof_3_num_sm+ com_2_num_sm + ges_des_2_num_sm
+"
+# ent_trab_2_num_sm+  se saca
+
+tot_1f_inicial<- lavaan::cfa(tot_1f_inicial_form, data = meas_model_original[complete.cases(meas_model_original),], ordered=names(meas_model_original), estimator= "WLSMV", warn =T, std.lv=T)
+tot_4f_inicial<- lavaan::cfa(tot_4f_inicial_form, data = meas_model_original[complete.cases(meas_model_original),], ordered=names(meas_model_original), estimator= "WLSMV", warn =T, std.lv=T)
+# 
+# sm_5f_sin_irr<- lavaan::cfa(sm_5f_sin_irr_form, data = dim_sm_p345_original[complete.cases(dim_sm_p345_original),], ordered=names(meas_model_original)[-4], estimator= "WLSMV", warn = T)
+
+#ent_trab_2_num_sm  0.428 0.000 0.485 0.000
+```
+
+```{r afc_sm_2, echo = T, eval = T}
+
+data.table::data.table(
+  cbind(modelos= c("1 factor",
+        #"5 factores", "6 factores", "1 factor, Salud Mental (sin 'Irritable')",
+        "4 factores"),rbind(ajusteAFC(tot_1f_inicial), 
+                             # ajusteAFC(tot_4f_inicial),
+                             # ajusteAFC(sm_6f_inicial),
+                             # ajusteAFC(sm_1f_sin_irr),
+                             ajusteAFC(tot_4f_inicial)
+                    )),keep.rownames = F) %>% 
+  knitr::kable(.,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Comparativo Índices de Ajuste de Modelos Propuestos para el Total de Preguntas"),
+               align =c('l',rep('c', 101)),
+             col.names = c("Modelos","Código", "gl","WLS $X^2$","CMIN/df","aGFI","GFI", "RMSEA\n[IC 90%]","CFit","CFI","NNFI"), escape=T) %>%
+  kableExtra::kable_classic() %>% 
+      #kableExtra::row_spec(1, bold= T, color= "black", background= "white")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12)
+```
+
+<br>
+
+A partir de lo observado en la Tabla anterior, el ajuste mejora cuando se asumen 4 factores respecto a asumir que todas las preguntas responden a un solo único factor. De todas formas, el modelo que asume 10 factores no converge, posiblemente porque el modelo hipotetizado no se adapta a los datos y hay subdimeniones con menos de 3 ítems. Atendiendo a la inquietud presentada en el análisis exploratorio, se presentan los índices de modificación al modelo de un factor, sin haber eliminado ítems. Se examinaron aquellos parámetros de modificación que presentaran un índice de modifcación (MI) mayor a 5 y cambios esperados del parámetro (Expected Parameter Change o SEPC) mayores a 0,2 [@Whittaker2012].
+
+<br>
+
+```{r sm_afc_mi,eval=T, echo=T, paged.print=TRUE, eval=T}
+tot_1f_inicial_mi<-
+  subset(lavaan::modindices(tot_1f_inicial)[order(lavaan::modindices(tot_1f_inicial)$mi, decreasing=TRUE), ], mi > 5 & abs(sepc.all)>0.2)%>%
+  data.frame()%>%
+  dplyr::mutate(lhs=paste0(lhs,op,rhs))%>%
+  dplyr::mutate(mi=sprintf("%04.2f",mi))%>%
+  dplyr::mutate(sepc.all=sprintf("%04.2f",sepc.all))%>%
+  dplyr::select(lhs,mi,sepc.all) %>% 
+  dplyr::mutate(cnt=stringr::str_count(lhs, gsub("*_[1-9]_.*","",lhs))) %>% 
+  dplyr::filter(cnt<2) %>% 
+  dplyr::select(-cnt)
+  
+  knitr::kable(tot_1f_inicial_mi,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Índices de Modificación, Modelo de Un Factor del Total de Preguntas"),
+               align =c('l',rep('c', 101)),
+               col.names = c("Relación entre variables","Índice de Modificación", "Cambio esperado del parámetro Estandarizado (SEPC)"))%>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+    kableExtra::row_spec(which(abs(as.numeric(tot_1f_inicial_mi$sepc.all))>1), bold= T)%>%
+  kableExtra::add_footnote(c("Nota. SEPC> +-1 en negrita","=~ : efecto de una variable observada en una variable latente","~~: covarianza entre los errores de dos variables observadas"),
+                            notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "375px")
+```
+
+<br>
+
+Uno de los ítems con mayores índices de modificación y que aparece de manera más recurrente fue el `ent_trab_1` (`r attr(encuesta_rec$ent_trab_1,"label")`) que muestra una importante covarianza con el ítem `superv_1` (`r attr(encuesta_rec$superv_1,"label")`). Otra relación importante es el de `dllo_prof_1` (`r attr(encuesta_rec$dllo_prof_1,"label")`) que muestra una importante covarianza con el ítem `intencion_1` (`r attr(encuesta_rec$intencion_1,"label")`). Una tercera relación importante es el de `covid_3` (`r attr(encuesta_rec$covid_3,"label")`) que muestra una importante covarianza con el ítem `superv_3` (`r attr(encuesta_rec$superv_3,"label")`). Una cuarta relación importante es el de `ent_trab_1` (`r attr(encuesta_rec$ent_trab_1,"label")`) que muestra una importante covarianza con el ítem `superv_2` (`r attr(encuesta_rec$superv_2,"label")`). Una quinta relación importante es el de `covid_3` (`r attr(encuesta_rec$covid_3,"label")`) que muestra una importante covarianza con el ítem `superv_2` (`r attr(encuesta_rec$superv_2,"label")`).
+
+<br>
+
+```{r, echo = FALSE, eval = F}
+"to provide minimum coverage of the construct's theoretical domain" (Hair et al., 2010, pg.676).
+
+An item selection procedure to maximise scale reliability and validity
+J. Raubenheimer
+SA Journal of Industrial Psychology | Vol 30, No 4 | a168 | DOI: https://doi.org/10.4102/sajip.v30i4.168 | © 2004 J. Raubenheimer | This work is licensed under CC Attribution 4.0
+Submitted: 26 October 2004 | Published: 26 October 2004
+Bollen (1989) fully and thoroughly discusses the issues of identification of CFA models in chapter 7. See p. 244 specifically regarding three- and two-indicator rules.
+It is recommended that each subscale include at least three items in order to capture the true central
+of each dimension
+```
+
+```{r fig_cfa_sm, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura 5. Cargas factoriales estandarizadas y comunalidades (solución de 1 factor)", message=FALSE, error=T, fig.retina=2}
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#Para ver el número de parámetros
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+
+if(no_mostrar==1){
+for (i in 2:100){
+  ano<-i
+  try(semPlot::semPaths(tot_1f_inicial, 
+                  residuals=T, 
+                  what="std", 
+                  label.cex=1.5, 
+                  edge.label.cex=1,
+                  fade=FALSE,
+                  thresholds = F,
+                  edge.label.position=rep(.5,ano),
+                  filetype="pdf",
+                  filename=paste0("Número de parámetros ",ano),
+                  intercepts=F)
+    )
+  }
+}
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+semPlot::semPaths(tot_1f_inicial, 
+                  residuals=T, 
+                  what="std", 
+                  label.cex=1, 
+                  edge.label.cex=1,
+                  fade=FALSE,
+                  thresholds = F,
+                  edge.label.position=c(rep(c(0.45,0.55,0.65),20),rep(0.5,28),rep(0.5,3)), #11  it, #17 #14 parámetros para las cargas
+                  nodeLabels=c(names(dplyr::select(encuesta_rec,comp_sos_1:superv_3)), "total"),
+                  intercepts=F, 
+                  curveAdjacent = TRUE,
+                  title=F, 
+                  layout="tree3",
+                  sizeMan=5, 
+                  gui = T, 
+                  allVars = FALSE,
+                  cut=1.1,
+                  sizeLat=4, 
+                  edge.color="black",
+                  curvePivot=T,
+                  borders=FALSE, 
+                  edge.width = 0.5, 
+                  node.width =1, 
+                  node.height= 1,
+                  label.scale=T,
+                  curve = 1,
+                  mar = c(5.8, 0.8, 7.8, 0.8))
+#https://www.redalyc.org/journal/212/21254609002/html/
+```
+
+<br>
+
+Se puede apreciar cierto sesgo de varianza del método común, es decir, que ciertos sesgos intervengan en que no haya variación en las respuestas dada la misma forma de administración de la encuesta y los sesgos que operan al completarla, más que por la relación o no-relación de los constructos medidos. De los pocos ítems que covarían bajo los umbrales (y por tanto correlacionan menos con el resto de los ítems, lo que equivale a decir que tales ítemes no suben en puntaje de acuerdo cuando el otro sube, no bajan cuando el otro baja, no suben cuando el otro baja o viceversa) se encuentra el ítem `comp_sos_7` (`r attr(encuesta_rec$comp_sos_7,"label")`) y en menor medida `comp_ben_2` (`r attr(encuesta_rec$comp_ben_2,"label")`).
+
+#### 4 factores
+
+
+
+<br>
+
+```{r afc_sm_3, echo = T, eval = T}
+#Cargas factoriales.
+afc_lambda_std_sm2<-
+data.table::data.table(lavaan::lavInspect(tot_4f_inicial, what = "std", add.labels = TRUE)$`lambda`,keep.rownames = T) %>% 
+  dplyr::mutate(V2=factor(rn, levels=paste0(var_labels_df[12:41,]$x,"_num_sm"),labels=var_labels_df[12:41,]$V2))%>% 
+  dplyr::mutate(V2=as.character(V2)) %>% 
+  #dplyr::left_join(cols_labels, by=c("rn"="V1")) %>% 
+  dplyr::select(V2,everything()) %>% 
+  dplyr::mutate(across(where(is.numeric), ~ sprintf("%04.2f",.x))) %>% # round(, 2)
+  dplyr::mutate(across(where(is.numeric), ~ ifelse(.x==0,NA,.x))) 
+for (i in 1:nrow(afc_lambda_std_sm2)){
+afc_lambda_std_sm2$V2[i]<-stringr::str_wrap(afc_lambda_std_sm2$V2[i], width = 40, indent = 0, exdent = 0)
+}
+
+  # dplyr::mutate(Var1=factor(rn, levels=paste0(var_labels_df[12:41,]$x,"_num_sm"),labels=var_labels_df[12:41,]$V2))%>% 
+var_labels_df[12:41,]$x[which(is.na(match(paste0(var_labels_df[12:41,]$x,"_num_sm"),afc_lambda_std_sm2$rn)))]
+
+#R cuadrado var latentes
+afc_psi_std_sm2<-
+cbind.data.frame(V2=c("Identificación, proyección e involucramiento", "Supervisor inmediato", "Capacidad desiderativa y valórica de la empresa", "Formación e Información"),
+data.table::data.table(lavaan::lavInspect(tot_4f_inicial, what = "std", add.labels = TRUE)$psi,keep.rownames = T)) %>% 
+  dplyr::mutate(across(where(is.numeric), ~ sprintf("%04.2f",.x))) %>% 
+  dplyr::mutate(across(where(is.numeric), ~ ifelse(.x==1,NA,.x))) 
+
+rbind.data.frame(afc_lambda_std_sm2,
+                 afc_psi_std_sm2) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Cargas Factoriales y Covarianzas Variables Latentes"),
+               align =c('l',rep('c', 101)),
+               col.names = c("Ítem","Código", 
+                             "Identificación, proyección e involucramiento", "Supervisor inmediato", "Capacidad desiderativa y valórica de la empresa", "Formación e Información"))%>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+  kableExtra::pack_rows("Variables manifiestas", 1, 29) %>%
+  kableExtra::pack_rows("Variables latentes", 30, 33) %>%
+  kableExtra::add_footnote(c("Nota. "),
+                            notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "375px")
+#A factor with 2 variables is only considered reliable when the variables are highly correlated with each another (r > .70) but fairly uncorrelated with other variables. Yong, A. G., & Pearce, S. (2013, p. 80).
+```
+
+<br>
+
+
+```{r fig_cfa_sm2, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figura 5. Cargas factoriales estandarizadas y comunalidades (solución de 4 factores)", message=FALSE, error=T, fig.retina=2}
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#Para ver el número de parámetros
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+
+if(no_mostrar==1){
+for (i in 101:300){
+  ano<-i
+  try(semPlot::semPaths(tot_4f_inicial, 
+                  residuals=T, 
+                  what="std", 
+                  label.cex=1.5, 
+                  edge.label.cex=1,
+                  fade=FALSE,
+                  thresholds = F,
+                  edge.label.position=rep(.5,ano),
+                  filetype="pdf",
+                  filename=paste0("Número de parámetros ",ano),
+                  intercepts=F)
+    )
+  }
+}
+#"Identificación, proyección e involucramiento", "Supervisor inmediato", "Capacidad desiderativa y valórica de la empresa", "Formación e Información"
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+semPlot::semPaths(tot_4f_inicial, 
+                  residuals=T, 
+                  what="std", 
+                  label.cex=.5, #103
+                  edge.label.cex=.9,
+                  fade=FALSE,
+                  thresholds = F,
+                  edge.label.position=c(rep(c(0.45,0.55,0.65),10),rep(0.5,76)), #29 it. y de ahi los residuos
+                  nodeLabels=c(gsub("*_num_sm","",afc_lambda_std_sm2$rn), "id_proy_inv", "superv","valor_empr","form_inf"),
+                  intercepts=F, 
+                  curveAdjacent = TRUE,
+                  title=F, 
+                  layout="tree3",
+                  sizeMan=3, 
+                  gui = T, 
+                  allVars = FALSE,
+                  cut=1,
+                  sizeLat=4, 
+                  label.scale=F,
+                  edge.color="black",
+                  curvePivot=T,
+                  borders=FALSE, 
+                  edge.width = 0.5, 
+                  node.width =1, 
+                  node.height= 1,
+                  label.scale=T,
+                  curve = 1,
+                  mar = c(5.8, 0.8, 7.8, 0.8))
+#https://www.redalyc.org/journal/212/21254609002/html/
+```
+
+<br>
+
+Considerando que existen factores en los que sólo se identifican 2 ítems y las altas covarianzas entre variables latentes, cabe discutir si existe un verdadero poder discriminante que permita identificar variables latentes a partir de sólo 2 ítems por dimensión [@Yong2013]. Por lo mismo, se utilizó el criterio HTMT (razón heterorazgo-monorrazgo) de las correlaciones, para explorar la validez discriminante de cada variable latente [@Henseler2015].
+
+<br>
+
+```{r afc_htmt, echo = T, eval = T, error=T}
+# https://rdrr.io/cran/semTools/man/htmt.html
+semTools::htmt(tot_4f_inicial_form,meas_model_original[complete.cases(meas_model_original),], sample.cov = NULL, missing = 'listwise', ordered = names(meas_model_original[complete.cases(meas_model_original),]), absolute = TRUE)%>% 
+  as.data.table(keep.rownames = T) %>% 
+  dplyr::mutate(across(where(is.numeric), ~ round(.x, 2))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Validez Discriminante"),
+               align =c('l',rep('c', 101)),
+               col.names = c("Var. Latentes","Identificación, proyección e involucramiento (fa1)", "Supervisor inmediato (fa2)", "Capacidad desiderativa y valórica de la empresa (fa3)", "Formación e Información (fa4)"))%>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+  kableExtra::add_footnote(c("Nota. "),
+                            notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "375px")
+
+#  Technically, the HTMT provides two advantages over the disattenuated construct score correlation: The HTMT does not require a factor analysis to obtain factor loadings, nor does it require the calculation of construct scores. This allows for determining the HTMT even if the raw data is not available, but the correlation matrix is. Furthermore, HTMT builds on the available measures and data and—contrary to the standard MTMM approach—does not require simultaneous surveying of the same theoretical concept with alternative measurement approaches. Therefore, this approach does not suffer from the standard MTMM approach’s well-known issues regarding data requirements and parallel measures (Schmitt 1978; Schmitt and Stults 1986).
+# We suggest assessing the heterotrait-monotrait ratio (HTMT) of the correlations, which is the average of the heterotrait-heteromethod correlations (i.e., the correlations of indicators across constructs measuring different phenomena), relative to the average of the monotrait-heteromethod correlations 
+
+#Use the HTMT criterion to assess discriminant validity! If the HTMT value is below 0.90, discriminant validity has been established between two reflective constructs. 
+```
+
+<br>
+
+Por lo visto en la tabla anterior, la Identificación, proyección e involucramiento está fuertemente relacionada con la Capacidad desiderativa y valórica de la empresa. Por otra parte, la Formación e Información se encuentra fuertemente relacionada a la Identificación, proyección e involucramiento, y por otra parte, también fuertemente relacionada con la Capacidad desiderativa y valórica de la empresa.
+
+<br>
+
+```{r dls_afc_disc_val_a, eval=T, echo=T, warning=FALSE}
+#Calculate discriminant validity statistics based on a fitted lavaan object
+
+#For the exploration, discriminant validity was examined with an R function, discriminantValidity, implemented in semToolspackage (Jorgensen et al., 2021). Discriminant validity was examined whether the two constructs, overall compliance and compliance with distancing measures, were distinguishable from each other. If a significant outcome results from 25χ2test, then discriminant validity between the tested constructs is supported, so the constructs are deemed to be distinct from each other (Jorgensen et al., 2021; Rönkkö & Cho, 2020). On the other hand, a non-significant outcome suggests that discriminant validity could not be supported, so it is impossible to distinguish the two constructs.The result of χ2test indicated that discriminant validity was supported, χ2(1) = 968.82, p< .001. Thus, although the two tested constructs, overall compliance and compliance with distancing measure, were significantly correlated with each other, they shall be treated as two distinguishable and independent constructs. It may suggest that the two items assess two unique and distinct constructs, so they could not be collapsed into one.
+
+semTools::discriminantValidity(tot_4f_inicial, cutoff = 0.9, merge = F, level = 0.95) %>% 
+  as.data.table(keep.rownames = T) %>% 
+  dplyr::mutate(across(where(is.numeric), ~ sprintf("%04.2f",.x))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Validez Discriminante (2)"),
+               align =c('l',rep('c', 101)),
+               #col.names = c("Var. Latentes","Agotamiento y Estrés", "Sueño", "Estrés Postraumático", "Sint. Ansiosa", "Sint. Depresiva")
+               escape=T)%>%
+  kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+  kableExtra::add_footnote(c("Nota. "),
+                           notation = "none")%>%
+  kableExtra::scroll_box(width = "100%", height = "375px")
+```
+
+<br>
+
+Del análisis anterior, no es posible distinguir el factor 1 del 3, el 1 del 4 y el 3 del 4.
+
+<br>
+
+
+```{r sm_afc_mi2,eval=T, echo=T, paged.print=TRUE, eval=T}
+tot_4f_inicial_mi2<-
+  subset(lavaan::modindices(tot_4f_inicial)[order(lavaan::modindices(tot_4f_inicial)$mi, decreasing=TRUE), ], mi > 5 & abs(sepc.all)>0.2)%>%
+  data.frame()%>%
+  dplyr::mutate(lhs=paste0(lhs,op,rhs))%>%
+  dplyr::mutate(mi=sprintf("%04.2f",mi))%>%
+  dplyr::mutate(sepc.all=sprintf("%04.2f",sepc.all))%>%
+  dplyr::select(lhs,mi,sepc.all)
+  
+  knitr::kable(tot_4f_inicial_mi2,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Índices de Modificación, Modelo de Un Factor del Total de Preguntas"),
+               align =c('l',rep('c', 101)),
+               col.names = c("Relación entre variables","Índice de Modificación", "Cambio esperado del parámetro Estandarizado (SEPC)"))%>%
+    kableExtra::kable_styling(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+    #kableExtra::row_spec(which(abs(as.numeric(tot_1f_inicial_mi$sepc.all))>1), bold= T)%>%
+  kableExtra::add_footnote(c("Nota. SEPC> +-1 en negrita","=~ : efecto de una variable observada en una variable latente","~~: covarianza entre los errores de dos variables observadas"),
+                            notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "375px")
+```
+
+<br>
+
+
+```{r dls_afc_rel_2d, echo=T, error=T, warning=FALSE, cache=TRUE, paged.print=TRUE}
+loadings_a <- standardizedSolution(tot_4f_inicial) %>%	
+  dplyr::filter(op == "=~", lhs == "fa1") %>% dplyr::select(est.std)
+com_rel_a <- sum(loadings_a) ^ 2 / ((sum(loadings_a)^ 2)  + sum(1 - loadings_a ^ 2))	
+
+loadings2_b <- standardizedSolution(tot_4f_inicial) %>%	
+  dplyr::filter(op == "=~", lhs == "fa2") %>% dplyr::select(est.std)
+com_rel_b <- sum(loadings2_b) ^ 2 / ((sum(loadings2_b)^ 2)  + sum(1 - loadings2_b ^ 2))	
+
+loadings3_c <- standardizedSolution(tot_4f_inicial) %>%	
+  dplyr::filter(op == "=~", lhs == "fa3") %>% dplyr::select(est.std)
+com_rel_c <- sum(loadings3_c) ^ 2 / ((sum(loadings3_c)^ 2)  + sum(1 - loadings3_c ^ 2))	
+
+loadings4_d <- standardizedSolution(tot_4f_inicial) %>%	
+  dplyr::filter(op == "=~", lhs == "fa4") %>% dplyr::select(est.std)
+com_rel_d <- sum(loadings4_d) ^ 2 / ((sum(loadings4_d)^ 2)  + sum(1 - loadings4_d ^ 2))	
+
+
+avg_var_a <- sum(loadings_a ^ 2) / nrow(loadings_a)	
+avg_var2_b <- sum(loadings2_b ^ 2) / nrow(loadings2_b)	
+avg_var3_c <- sum(loadings3_c ^ 2) / nrow(loadings3_c)	
+avg_var4_d <- sum(loadings4_d ^ 2) / nrow(loadings4_d)
+
+cr_ave<-
+  data.frame(
+    Constructo=c("Identificación, proyección e involucramiento", "Supervisor inmediato", "Capacidad desiderativa y valórica de la empresa", "Formación e Información"),
+    AVE=round(c(avg_var_a,avg_var2_b,avg_var3_c, avg_var4_d),2),
+    CR=round(c(com_rel_a,com_rel_b,com_rel_c,com_rel_d),2)
+  )
+
+#Flora, D. B. (2020). Your Coefficient Alpha Is Probably Wrong, but Which Coefficient Omega Is Right? A Tutorial on Using R to Obtain Better Reliability Estimates. Advances in Methods and Practices in Psychological Science, 484–501. https://doi.org/10.1177/2515245920951747
+
+#CR=El valor del estadístico debería ser superior a 0,7
+#Reliability values at Levels 1 and 2 of the second-order factor, as well as the partial reliability value at Level 1
+#estimates of ωu are unbiased with varying factor loadings (i.e., violation of tau equivalence), when alpha underestimates population reliability 
+
+data.table(t(round(semTools::reliability(tot_4f_inicial, c("alpha.ord","omega","ave"),return.total=T),2)),keep.rownames = T) %>% 
+  dplyr::mutate(rn=dplyr::case_when(rn=="fa1"~"Identificación, proyección e involucramiento",
+                                    rn=="fa2"~"Supervisor inmediato",
+                                    rn=="fa3"~"Capacidad desiderativa y valórica de la empresa",
+                                    rn=="fa4"~"Formación e Información", T~"Total")) %>% 
+  dplyr::left_join(cr_ave, by=c("rn"="Constructo")) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla. Confiabilidad"),
+               col.names = c("Constructo","Alfa ordinal", "omega", "Varianza Media Extraída/\nAverage variance extracted", "AVE", "Fiabilidad Compuesta"),
+               escape=T)%>%
+      kableExtra::add_footnote(c("Nota. AVE >0.5, evidencia de validez convergente; CR Alfa >=.7"),
+                           notation = "none")%>%
+  kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 12) %>%
+  kableExtra::scroll_box(width = "100%", height = "375px")
+```
+
+<br>
+
+Los resultados anteriores nos indican que la prueba muestra valores consistentes como un único constructo, iendo difícil distinguir entre ellos. De todas maneras, cada una de las dimensiones identificadas muestra una adecuada confiabilidad interna, lo que aporta evidencia de valdiez convergente aunque no de validez discriminante (a partir de la tabla previa a la indicada en el párrafo).
+
+---
+
+<div id="refs"></div>
+
+# Compilación
+
+```{r save_export, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+save.image("__psicometrica_feb_2022.RData")
+```
+
+# Información de la Sesión
+
+```{r session_info, echo=T, paged.print=TRUE}
+Sys.getenv("R_LIBS_USER")
+rstudioapi::getSourceEditorContext()
+
+
+cbind.data.frame(label=data.frame(attr(unlist(sessionInfo()$R.version),"names")),data.table::data.table(unlist(sessionInfo()$R.version))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Propiedades del documento"),
+               col.names = c("Categoría","Valor"),
+               align =c('l',rep('c', 101)),
+               escape=T)%>%
+    kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 12)
+
+sessionInfo()$locale
+sessionInfo()$running
+
+sesion_info <- devtools::session_info()
+dplyr::select(
+  tibble::as_tibble(sesion_info$packages),
+  c(package, loadedversion, source)
+) %>% 
+  DT::datatable(filter = 'top', colnames = c('Row number' =1,'Variable' = 2, 'Percentage'= 3),
+              caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: left;',
+        '', htmltools::em('Paquetes estadísticos utilizados')),
+      options=list(
+initComplete = htmlwidgets::JS(
+      "function(settings, json) {",
+      "$(this.api().tables().body()).css({'font-size': '80%'});",
+      "}")))
+unlink("*_cache", recursive = T, force = T, expand = TRUE)
+```
+
+

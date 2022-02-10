@@ -1,0 +1,35 @@
+---
+title: "Clima Empresa 2021"
+description: |
+  Exploración y estructuración de los datos de una encuesta aplicada en el segundo semestre del año 2021
+theme: stylo.css
+site: distill::distill_article
+output_dir: "docs"
+source_url: true
+author:
+  - name: González-Santa Cruz, A. 
+    affiliation: CISS, Universidad Mayor, Chile. Metodologías Cuantitativas de Investigación, Carrera de Data Science, Universidad Mayor, Chile
+    orcid_id: 0000-0002-5166-9121
+output: distill::distill_article
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# Learn more about creating websites with Distill at:
+# https://rstudio.github.io/distill/website.html
+
+# Learn more about publishing to GitHub Pages at:
+# https://rstudio.github.io/distill/publish_website.html#github-pages
+
+```
+
+# Fecha: `r format(Sys.time(), '%d %B, %Y')`
+
+Esta página está compuesta de los siguientes tópicos:
+
+- Pasos para **la consolidación de la base de datos** [aquí](Explorar_Datos.html)
+
+- Breve descripción de **estructura interna** [aquí](Propiedades_Psicometricas.html)
+
+- **Análisis principales** [aquí](LCA_otros.html)

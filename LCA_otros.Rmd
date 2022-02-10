@@ -1,0 +1,1013 @@
+---
+title: "Análisis de Clases Latentes y Otros"
+output:
+  distill::distill_article:
+    code_folding: true
+    fig_height: 6
+    fig_width: 8
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+    toc_float: yes
+    output_dir: "docs"
+  toc_float:
+    collapsed: false
+    smooth_scroll: true
+bibliography: rmarkdown_validacion.bib
+nocite: '@*'
+---
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{=html}
+<style type="text/css">
+.tablelines table, .tablelines td, .tablelines th {
+  border: 1px solid black;
+  }
+.centrado {
+  text-align: center;
+}
+.table.center {
+  margin-left:auto; 
+  margin-right:auto;
+}
+.table_wrapper{
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+code.r{
+  font-size: 8px;
+}
+body{ /* Normal  */
+    text-align: justify;
+}
+.superbigimage{
+  overflow-y:scroll;
+  white-space: nowrap;
+}
+.superbigimage img{
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+p.comment {
+  background-color: #FF7F79;
+    padding: 10px;
+  border: 1px solid black;
+  margin-left: 25px;
+  border-radius: 5px;
+  font-style: italic;
+}
+</style>
+```
+```{=html}
+<style>
+  p.comment {
+    background-color: #ff9a9a;
+      padding: 10px;
+    border: 1px solid red;
+    margin-left: 25px;
+    border-radius: 5px;
+    font-style: italic;
+  }
+
+</style>
+```
+```{r setup0, include=T}
+unlink('*_cache', recursive = TRUE)
+load("__psicometrica_feb_2022.RData")
+
+if(isTRUE(getOption('knitr.in.progress'))==T){
+    clus_iter=5000
+} else {
+  input <- readline('¿Are you gonna run the dataset with the whole iterations? (Si/No): ')
+  if(input=="Si"){
+    clus_iter=10000
+  } else {
+    clus_iter=1000
+  }
+}
+library(tm)
+if(isTRUE(getOption('knitr.in.progress'))==T){
+  input2 <- "todas"
+} else {
+    input2 <- "todas"
+    input2 <- Corpus(VectorSource(input2))
+    input2 <- tm_map(input2, tolower)
+    input2 <- tm_map(input2,stripWhitespace)
+    input2 <- gsub(" ","_",as.character(unlist(input2)[1]))
+}
+```
+
+```{r setup, include=T, message=F, warning=F, error=T}
+#evitar que ocupe curl
+#options(renv.download.override = utils::download.file)
+
+
+#arriba puse algunas opciones para que por defecto escondiera el código
+#también cargue algunos estilo .css para que el texto me apareciera justificado, entre otras cosas.
+local({r <- getOption("repos")
+       r["CRAN"] <- "http://cran.r-project.org" 
+       options(repos=r)
+})
+
+clipboard <- function(x, sep="\t", row.names=FALSE, col.names=TRUE){
+     con <- pipe("xclip -selection clipboard -i", open="w")
+     write.table(x, con, sep=sep, row.names=row.names, col.names=col.names)
+     close(con)
+}
+
+`%>%` <- magrittr::`%>%`
+copy_names <- function(x,row.names=FALSE,col.names=TRUE,dec=",",...) {
+  library(dplyr)
+  if(class(ungroup(x))[1]=="tbl_df"){
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)    
+    }
+  } else {
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)       
+    }
+  }
+}  
+
+if(!require(pacman)){install.packages("pacman")}
+
+pacman::p_unlock(lib.loc = .libPaths()) #para no tener problemas reinstalando paquetes
+knitr::opts_chunk$set(
+    echo = TRUE,
+    message = FALSE,
+    warning = FALSE
+)
+#dejo los paquetes estadísticos que voy a utilizar
+
+if(!require(plotly)){install.packages("plotly")}
+if(!require(htmlwidgets)){install.packages("htmlwidgets")}
+#if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(gganimate)){install.packages("gganimate")}
+if(!require(readr)){install.packages("readr")}
+if(!require(stringr)){install.packages("stringr")}
+if(!require(data.table)){install.packages("data.table")}
+if(!require(DT)){install.packages("DT")}
+if(!require(ggplot2)){install.packages("ggplot2")}
+if(!require(lattice)){install.packages("lattice")}
+if(!require(forecast)){install.packages("forecast")}
+if(!require(zoo)){install.packages("zoo")}
+if(!require(janitor)){install.packages("janitor")}
+if(!require(rjson)){install.packages("rjson")}
+if(!require(estimatr)){install.packages("estimatr")} 
+if(!require(textreg)){install.packages("textreg")}
+if(!require(sjPlot)){install.packages("sjPlot")}
+if(!require(foreign)){install.packages("foreign")}
+if(!require(tsModel)){install.packages("tsModel")}
+if(!require(lmtest)){install.packages("lmtest")}
+if(!require(Epi)){install.packages("Epi")}
+if(!require(splines)){install.packages("splines")}
+if(!require(vcd)){install.packages("vcd")}
+if(!require(astsa)){install.packages("astsa")}
+if(!require(MASS)){install.packages("MASS")}
+if(!require(ggsci)){install.packages("ggsci")}
+if(!require(Hmisc)){install.packages("Hmisc")}
+if(!require(compareGroups)){install.packages("compareGroups")}
+if(!require(dplyr)){install.packages("dplyr")}
+if(!require(ggforce)){install.packages("ggforce")}
+if(!require(doParallel)){install.packages("doParallel")}
+if(!require(SCtools)){install.packages("SCtools")}
+if(!require(rio)){install.packages("rio")}
+if(!require(rbokeh)){install.packages("rbokeh")}
+if(!require(altair)){install.packages("altair")}
+if(!require(sqldf)){install.packages("sqldf")} 
+if(!require(devtools)){install.packages("devtools")}
+if(!require(skimr)){install.packages("skimr")}
+if(!require(tm)){install.packages("tm")} 
+if(!require(RColorBrewer)){install.packages("RColorBrewer")}
+if(!require(psych)){install.packages("psych")}
+if(!require(GPArotation)){install.packages("GPArotation")}
+if(!require(mvtnorm)){install.packages("mvtnorm")}
+if(!require(polycor)){install.packages("polycor")}
+if(!require(MVN)){install.packages("MVN")}
+if(!require(ggcorrplot)){install.packages("ggcorrplot")}
+if(!require(radiant)){install.packages("radiant")}
+if(!require(homals)){install.packages("homals")}
+if(!require(nFactors)){install.packages("nFactors")}
+if(!require(ggiraph)){install.packages("ggiraph")}
+if(!require(factoextra)){install.packages("factoextra")}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(lubridate)){install.packages("lubridate")}
+if(!require(REdaS)){install.packages("REdaS")}
+if(!require(jrt)){install.packages("jrt")}
+if(!require(parameters)){install.packages("parameters")}
+if(!require(lavaan)){install.packages("lavaan")}
+if(!require(semPlot)){install.packages("semPlot")}
+if(!require(semTools)){install.packages("semTools")}
+if(!require(random.polychor.pa)){install.packages("random.polychor.pa")}
+if(!require(heatmaply)){install.packages("heatmaply")}
+if(!require(mediation)){install.packages("mediation")}
+if(!require(finalfit)){install.packages("finalfit")}
+if(!require(diagram)){install.packages("diagram")}
+if(!require(poLCA)){install.packages("poLCA")}
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+path_2<-rstudioapi::getSourceEditorContext()$path
+path_3<-gsub("Clima_empresa/LCA_otros.Rmd", "DOCUMENTOS/6.TESIS 2018/LCA NAQ/",path_2)
+
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+source(paste0(path_3,"poLCA.R"))
+#\item{Gsq.pvalue}{Likelihood ratio/deviance statistic.}
+#\item{Chisq}{Pearson Chi-square goodness of fit statistic for fitted vs. observed multiway tables p-value.}
+#\item{Chisq.pvalue}{Pearson Chi-square goodness of fit statistic for fitted vs. observed multiway tables p-value.}
+source(paste0(path_3,"vcov.poLCA.R"))
+source(paste0(path_3,"rmulti.R"))
+source(paste0(path_3,"print.poLCA.R"))
+source(paste0(path_3,"poLCA.ylik.C.R"))
+source(paste0(path_3,"poLCA.vectorize.R"))
+source(paste0(path_3,"poLCA.updatePrior.R"))
+source(paste0(path_3,"poLCA.unvectorize.R"))
+source(paste0(path_3,"poLCA.table.R"))
+source(paste0(path_3,"poLCA.simdata.R"))
+source(paste0(path_3,"poLCA.se.R"))
+source(paste0(path_3,"poLCA.reorder.R"))
+source(paste0(path_3,"poLCA.probHat.C.R"))
+source(paste0(path_3,"poLCA.predcell.R"))
+source(paste0(path_3,"poLCA.posterior.R"))
+source(paste0(path_3,"poLCA.postClass.C.R"))
+source(paste0(path_3,"poLCA.makeplot.poly.R"))
+source(paste0(path_3,"poLCA.makeplot.dich.R"))
+source(paste0(path_3,"poLCA.entropy.R"))
+source(paste0(path_3,"poLCA.dLL2dBeta.C.R"))
+source(paste0(path_3,"poLCA.compress.R"))
+source(paste0(path_3,"plot.poLCA.R"))
+source(paste0(path_3,"coef.poLCA.R"))
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#
+
+
+# Calculate the number of cores
+#no_cores <- detectCores() - 1
+##cl<-makeCluster(no_cores)
+#registerDoParallel(cl)
+# sudo apt -y install libfontconfig1-dev
+# sudo apt-get install libxml2-dev
+#Sys.setlocale(category = "LC_ALL", locale = "english")
+#locale("es", decimal_mark = ",")
+
+
+find_type <- function(x) {
+  case_when(
+    is.factor(x) ~ "factor",
+    is.character(x) ~ "character",
+    is.numeric(x) ~ "numeric",
+    TRUE ~ "not sure"
+  )
+}
+
+permute_icc <- function(x, y, n = 99) {
+  actual <- ICCbare(x, y)
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- ICCbare(scrambled_x, y)
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+permute_tau <- function(x, y, n = 99) {
+  actual <- GKtau(x, y)$tauxy
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- GKtau(scrambled_x, y)$tauxy
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+# to do:
+## get p-values
+
+eda <- function(x, plot = FALSE) {
+  
+  x <- as.data.frame(x)
+  
+  num_rows <- ncol(x)^2 - ncol(x)
+  df <- tibble(var1 = vector(mode = "character", length = 1),
+               var2 = vector(mode = "character", length = 1),
+               statistic = vector(mode = "character", length = 1),
+               value = vector(mode = "double", length = 1),
+               p_value = vector(mode = "double", length = 1),
+               n = vector(mode = "integer", length = 1))
+  
+  for(i in seq_along(1:ncol(x)))
+    for(j in seq_along(1:ncol(x))) {
+      if(i < j){
+        # get type of columns i and j
+        var_1_type <- find_type(x[,i])
+        var_2_type <- find_type(x[,j])
+        #print(paste("var1 type: ", var_1_type, "\nvar2 type: ", var_2_type, "\n\n"))
+        
+        x1 <- x[,i]
+        x2 <- x[,j]
+        
+        # remove NAs for simplicity
+        if(any(is.na(x1))){
+          # get NA indicies
+          ind <- which(is.na(x1))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        if(any(is.na(x2))){
+          # get NA indicies
+          ind <- which(is.na(x2))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        # make sure x1 and x2 are the same length
+        stopifnot(length(x1) == length(x2))
+        
+        n <- length(x1)
+        
+        if(var_1_type == "numeric" & var_2_type == "numeric") {
+          # run a correlation
+          result <- cor.test(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "r",
+                        value = result$estimate,
+                        p_value = result$p.value,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "numeric") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x1))
+          require(ICC)
+          result <- ICCbare(x1, x2)
+          p <- permute_icc(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "numeric" & var_2_type == "factor") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x2))
+          require(ICC)
+          result <- ICCbare(x2, x1)
+          p <- permute_icc(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "factor") {
+          require("GoodmanKruskal")
+          # compute the GKtau statistic
+          stat1 <- GKtau(x1, x2)$tauxy
+          stat2 <- GKtau(x1, x2)$tauyx
+          p1 <- permute_tau(x1, x2)
+          p2 <- permute_tau(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "tau",
+                        value = stat1,
+                        p_value = p1,
+                        n = n
+          )
+          df <- add_row(df, 
+                        var1 = names(x)[j],
+                        var2 = names(x)[i],
+                        statistic = "tau",
+                        value = stat2,
+                        p_value = p2,
+                        n = n
+          )
+        } else{
+          # return an empty row
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = NA_character_,
+                        value = NA_integer_,
+                        p_value = NA_real_,
+                        n = n
+          )
+        }
+      }
+    }
+  if(plot == TRUE) {
+    df[-1,] %>%
+      filter(!is.na(value)) %>%
+      unite(variables, var1, var2, sep = " by ") %>%
+      mutate(`possibly significant` = if_else(p_value < 0.05, "significant", "NS")) %>%
+      ggplot(aes(y = value, x = reorder(variables, value), color = `possibly significant`)) +
+      geom_point() +
+      coord_flip() +
+      facet_wrap(~statistic, scales = "free") +
+      theme_minimal() +
+      scale_color_manual(values = c("#37454B", "#E84F22"))
+  } else{
+    df[-1,]
+  }
+  
+}
+
+
+ajusteAFC <- function (x) {as.data.frame(cbind("Modelo"=deparse(substitute(x)),
+                    "gl"=round(lavaan::fitMeasures(x) ["df"],digits=3),
+                    "WLS X2"=round(lavaan::fitMeasures(x)["chisq"],digits=3),
+                    "CMIN/df"=round((lavaan::fitMeasures(x)["chisq"]/fitMeasures(x) ["df"]),digits=3),
+                    "aGFI"=round(lavaan::fitMeasures(x)["agfi"],digits=3),
+                    "GFI"=round(lavaan::fitMeasures(x)["gfi"],digits=3),
+                    "RMSEA [90% IC]"=paste0(round(lavaan::fitMeasures(x) ["rmsea"],3),"[",round(lavaan::fitMeasures(x) ["rmsea.ci.lower"],3),"-",round(lavaan::fitMeasures(x) ["rmsea.ci.upper"],3),"]"),
+                    "CFit"=round(lavaan::fitMeasures(x)["rmsea.pvalue"],digits=3),
+                    "CFI"=round(lavaan::fitMeasures(x)["cfi"],digits=3),
+                    "NNFI"=round(lavaan::fitMeasures(x)["nnfi"],digits=3),
+                    "SRMR"=round(lavaan::fitMeasures(x)["srmr"],digits=3)))
+
+  
+  return(
+    as.data.frame(cbind("Modelo"=deparse(substitute(x)),
+                    "gl"=round(lavaan::fitMeasures(x) ["df"],digits=3),
+                    "WLS X2"=sprintf("%7.3f",round(lavaan::fitMeasures(x)["chisq"],digits=3)),
+                    "CMIN/df"=sprintf("%5.3f",round((lavaan::fitMeasures(x)["chisq"]/fitMeasures(x) ["df"]),digits=3)),
+                    "aGFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["agfi"],digits=3)),
+                    "GFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["gfi"],digits=3)),
+                    "RMSEA [90% IC]"=paste0(sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea"],3)),"[",sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea.ci.lower"],3)),"-",sprintf("%5.3f",round(lavaan::fitMeasures(x) ["rmsea.ci.upper"],3)),"]"),
+                    "CFit"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["rmsea.pvalue"],digits=3)),
+                    "CFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["cfi"],digits=3)),
+                    "NNFI"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["nnfi"],digits=3)),
+                    "SRMR"=sprintf("%5.3f",round(lavaan::fitMeasures(x)["srmr"],digits=3))))
+  )
+}
+guardar_tablas <- function (x,y) {writexl::write_xlsx(as.data.frame(x, keeprownames= T),paste0(y,".xlsx"))}
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+lca_entropia <- function(x,seed,k,f,dat,nbr_repet,na_rm){
+  #x=texto distintivo
+  #y =seed ej: 4345
+  #k= cuantos modelos se van a calcular
+  #f= función
+  #dat= datos
+  #nbr_repet= número de repeeticiones
+  #na_rm= permitir valores perdidos
+  max_II <- -10000000
+  min_bic <- 10000000
+  set.seed(seed)
+      assign(paste("lc", 1, "_", x, sep = ""),#get(paste("lc", i, "_", x, sep = "")) 
+           poLCA(f, dat, nclass=1, maxiter=5000,
+                 tol=1e-5, na.rm=na_rm,
+                 nrep=nbr_repet, verbose=F, calc.se=TRUE)
+           )
+  set.seed(seed)
+  for(i in 2:k){
+    assign(paste("lc", i, "_", x, sep = ""),#get(paste("lc", i, "_", x, sep = "")) 
+           poLCA(f, dat, nclass=i, maxiter=5000,
+                 tol=1e-5, na.rm=na_rm,
+                 nrep=nbr_repet, verbose=F, calc.se=TRUE)
+           )
+    if(get(paste("lc",i,"_",x,sep=""))$bic < min_bic){
+        min_bic <- get(paste("lc",i,"_",x,sep=""))$bic
+        LCA_best_model<-get(paste("lc",i,"_",x,sep=""))
+    }
+  }
+  
+  tab.modfit<-data.frame(matrix(rep(999,14),nrow=1))
+  names(tab.modfit)<-c("log-likelihood","Chi2","Chi2_pval",
+                       "resid. df","BIC",
+                       "aBIC","cAIC","likelihood-ratio","LLik_pval","Entropy", "Entropy.R2","Dev Change","df","pval")
+  relative.entropy<-function(lc){
+    en<--sum(lc$posterior*
+               log(lc$posterior),na.rm=T)
+    e<-1-en/(nrow(lc$posterior)*log(ncol(lc$posterior)))
+    return(e)
+  }
+  machine_tolerance <- sqrt(.Machine$double.eps)
+  entropy.R2 <- function(fit) {
+  entropy <- function(p) {
+    p <- p[p > machine_tolerance] # since Lim_{p->0} p log(p) = 0
+    sum(-p * log(p))
+  }
+  error_prior <- entropy(fit$P) # Class proportions
+  error_post <- mean(apply(fit$posterior, 1, entropy))
+  R2_entropy <- (error_prior - error_post) / error_prior
+  R2_entropy
+}
+  for(i in 2:k){
+    tab.modfit<-rbind(tab.modfit,
+                      c(get(paste("lc",i,"_",x,sep=""))$llik,
+                        get(paste("lc",i,"_",x,sep=""))$Chisq,
+                        get(paste("lc",i,"_",x,sep=""))$Chisq.pvalue,
+                        get(paste("lc",i,"_",x,sep=""))$resid.df,
+                        get(paste("lc",i,"_",x,sep=""))$bic,
+                        (-2*get(paste("lc",i,"_",x,sep=""))$llik) +
+                          ((log((get(paste("lc",i,"_",x,sep=""))$N + 2)/24)) *
+                             get(paste("lc",i,"_",x,sep=""))$npar),
+                        (-2*get(paste("lc",i,"_",x,sep=""))$llik) +
+                          get(paste("lc",i,"_",x,sep=""))$npar *
+                          (1 + log(get(paste("lc",i,"_",x,sep=""))$N)),
+                        get(paste("lc",i,"_",x,sep=""))$Gsq,
+                        get(paste("lc",i,"_",x,sep=""))$Gsq.pvalue,
+                        relative.entropy(get(paste("lc",i,"_",x,sep=""))),
+                        entropy.R2(get(paste("lc",i,"_",x,sep=""))),
+                        (get(paste("lc",i-1,"_",x,sep=""))$Gsq- get(paste("lc",i,"_",x,sep=""))$Gsq),
+                        (get(paste("lc",i-1,"_",x,sep=""))$resid.df- get(paste("lc",i,"_",x,sep=""))$resid.df),
+                        (pchisq( get(paste("lc",i-1,"_",x,sep=""))$Gsq- get(paste("lc",i,"_",x,sep=""))$Gsq,  get(paste("lc",i-1,"_",x,sep=""))$resid.df- get(paste("lc",i,"_",x,sep=""))$resid.df))
+                        ))
+  }
+  tab.modfit<-round(tab.modfit[-1,],2)
+  tab.modfit$Nclass<-2:k
+
+  newList <- list("lc_entropy_table" = tab.modfit, 
+                  "lc_entropy_best_model" = LCA_best_model)
+  return(list2env(newList ,.GlobalEnv))
+}
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#' Bivariate residuals for latent class models
+#' 
+#' Calculate the "bivariate residuals" (BVRs) between pairs of variables 
+#' in a latent class model.
+#' 
+#' This function compares the model-implied (expected) counts in the crosstables
+#' of all pairs of observed dependent variables to the observed counts. For each
+#' pair, it calculates a "chi-square" statistic,
+#' 
+#' \deqn{\text{BVR} = \sum_{j, j'} \frac{(n_{jj'} - e_{jj'})^2}{e_{jj'}}},
+#' 
+#' where \eqn{n_{jj'}} are the observed counts for categories \eqn{j} and \eqn{j'} 
+#' of the variables being crosstabulated, and \eqn{e_{jj'}} are
+#' the expected counts under the latent class model. 
+#' 
+#' Note that the BVR does not follow an asymptotic chi-square distribution and
+#' for accurate p-values, parametric bootstrapping is necessary (Oberski et al. 2013).
+#' 
+#' @param fit A poLCA fit object
+#' @param tol Optional: tolerance for small expected counts
+#' @param rescale_to_df Optional: whether to divide the pairwise "chi-square" values by 
+#' the degrees of freedom of the local crosstable. Default is TRUE.
+#' @return The table of bivariate residuals
+#' @author Daniel Oberski (daniel.oberski@gmail.com)
+#' @seealso \code{\link{poLCA}} for fitting the latent class model.
+#' @references 
+#' Oberski, DL, Van Kollenburg, GH and Vermunt, JK (2013). 
+#'   A Monte Carlo evaluation of three methods to detect local dependence in binary data latent class models. 
+#'   Advances in Data Analysis and Classification 7 (3), 267-279.
+#' @examples
+#' data(values)
+#' f <- cbind(A, B, C, D) ~ 1
+#' M0 <- poLCA(f,values, nclass=1, verbose = FALSE) 
+#' bvr(M0) # 12.4, 5.7, 8.3, 15.6, ... 
+bvr <- function(fit, tol = 1e-3, rescale_to_df = TRUE) {
+  stopifnot(class(fit) == "poLCA")
+
+  ov_names <- names(fit$predcell)[1:(ncol(fit$predcell) - 2)]
+  ov_combn <- combn(ov_names, 2)
+
+  get_bvr <- function(ov_pair) {
+    form_obs <- as.formula(paste0("observed ~ ", ov_pair[1], " + ", ov_pair[2]))
+    form_exp <- as.formula(paste0("expected ~ ", ov_pair[1], " + ", ov_pair[2]))
+
+    counts_obs <- xtabs(form_obs, data = fit$predcell)
+    counts_exp <- xtabs(form_exp, data = fit$predcell)
+    counts_exp <- ifelse(counts_exp < tol, tol, counts_exp) # Prevent Inf/NaN
+
+    bvr_df <- prod(dim(counts_exp) - 1)
+    bvr_value <- sum((counts_obs - counts_exp)^2 / counts_exp)
+
+    if(rescale_to_df) bvr_value <- bvr_value / bvr_df
+
+    attr(bvr_value, "df") <- bvr_df
+
+    bvr_value
+  }
+
+  bvr_pairs <- apply(ov_combn, 2, get_bvr)
+
+  attr(bvr_pairs, "rescale_to_df") <- rescale_to_df
+  attr(bvr_pairs, "class") <- "dist"
+  attr(bvr_pairs, "Size") <- length(ov_names)
+  attr(bvr_pairs, "Labels") <- ov_names
+  attr(bvr_pairs, "Diag") <- FALSE
+  attr(bvr_pairs, "Upper") <- FALSE
+
+  bvr_pairs
+}
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+poLCA.entropy.fix <- function (lc)
+{
+  K.j <- sapply(lc$probs, ncol)
+  fullcell <- expand.grid(sapply(K.j, seq, from = 1))
+  P.c <- poLCA.predcell(lc, fullcell)
+  return(-sum(P.c * log(P.c), na.rm = TRUE))
+}
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#Calculate entropy R2 for poLCA model
+
+# MIT license
+# Author: Daniel Oberski
+# Input: result of a poLCA model fit
+# Output: entropy R^2 statistic (Vermunt & Magidson, 2013, p. 71)
+# See: daob.nl/wp-content/uploads/2015/07/ESRA-course-slides.pdf
+# And: https://www.statisticalinnovations.com/wp-content/uploads/LGtecnical.pdf
+#https://gist.github.com/daob/c2b6d83815ddd57cde3cebfdc2c267b3
+machine_tolerance <- sqrt(.Machine$double.eps)
+entropy.R2 <- function(fit) {
+  entropy <- function(p) {
+    p <- p[p > machine_tolerance] # since Lim_{p->0} p log(p) = 0
+    sum(-p * log(p))
+  }
+  error_prior <- entropy(fit$P) # Class proportions
+  error_post <- mean(apply(fit$posterior, 1, entropy))
+  R2_entropy <- (error_prior - error_post) / error_prior
+  R2_entropy
+}
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#http://researchdata.gla.ac.uk/879/1/Survey_data_processed_using_R.pdf
+##Function to plot variable probabilites by latent class
+
+## Function to undertake chisquare analayis and plot graphs of residuals and contributions
+chisquaretest.predictions.function <-
+ function(indfactor.data,
+ predclass.data,
+ noclasses,
+ pitem,
+ gitem,
+ chirows,
+ chicols) {
+ chisquare.results <- chisq.test(indfactor.data, predclass.data)
+ residuals.data <- chisquare.results$residuals
+ colnames(residuals.data) <- chicols
+ rownames(residuals.data) <- chirows
+ title.text <-
+ paste(
+ "Residuals: chi Square Crosstabulation of\n",
+ pitem,
+ "and",
+ gitem,
+ "\n(Chisquare =",
+ round(chisquare.results$statistic, 3),
+ " p <",
+ round(chisquare.results$p.value, 3),
+ ")",
+ sep = " "
+ )
+ corrplot(
+ residuals.data,
+ is.cor = FALSE,
+ title = title.text,
+ mar = c(0, 0, 4, 0)
+ )
+ contrib.data <-
+ 100 * residuals.data ^ 2 / chisquare.results$statistic
+ round(contrib.data, 3)
+ colnames(contrib.data) <- chicols
+ rownames(contrib.data) <- chirows
+ title.text <-
+ title.text <-
+ paste(
+ "Contributions: chi Square Crosstabulation of\n",
+ pitem,
+ "and",
+ gitem,
+ "\n(Chisquare =",
+ round(chisquare.results$statistic, 3),
+ " p <",
+ round(chisquare.results$p.value, 3),
+ ")",
+ sep = " "
+ )
+ corrplot(
+ contrib.data,
+ is.cor = FALSE,
+ title = title.text,
+ mar = c(0, 0, 4, 0)
+ )
+ return(chisquare.results)
+ }
+##Funciton for Cramers V test
+cv.test = function(x, y) {
+ CV = sqrt(chisq.test(x, y, correct = FALSE)$statistic /
+ (length(x) * (min(
+ length(unique(x)), length(unique(y))
+ ) - 1)))
+ print.noquote("Cramér V / Phi:")
+ return(as.numeric(CV))
+}
+```
+
+<br>
+
+# Fecha: `r format(Sys.time(), '%d %B, %Y')`
+
+# Análisis de Clases Latentes
+
+```{r paso1,eval=T, echo=T, paged.print=TRUE, eval=T}
+#
+meas_model_original_pred_lavaan<-cbind(encuesta_rec,lavPredict(tot_4f_inicial))
+```
+
+```{r paso2_definir_variables,eval=T, echo=T, paged.print=TRUE, eval=T}
+#a_dir  b_ger sexo 
+
+mydata <- meas_model_original_pred_lavaan[,c("a_dir","sexo","fa1","fa2","fa3","fa4")] %>% 
+                  dplyr::mutate(sexo=factor(case_when(is.na(sexo)~"NS",T~as.character(sexo)))) %>%
+                  dplyr::mutate_at(.vars=vars(paste0("fa",1:4)),.funs = ~cut2(., g =5)) %>% 
+                  dplyr::mutate_at(.vars=vars(c("a_dir")),.funs = ~as.factor(.)) %>% 
+                  dplyr::mutate_at(1:6, ~as.numeric(.)) 
+                  # dplyr::mutate_at(c("p45_demo_sexo",paste0("p12_13_nec_insuf_0",c(1:4,6,7,9))),
+                  #                                         ~case_when(.==0~2,TRUE~as.numeric(.)))
+
+f_df<-with(meas_model_original, cbind(a_dir,sexo,fa1,fa2,fa3,fa4)~1)
+#qdapTools::mtabulate(mydata_naq)
+```
+
+```{r paso2a_lca_select,eval=T, echo=T, paged.print=TRUE, eval=T}
+#<div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:400px; overflow-x: scroll; width:100%">
+# f is the selected variables
+# dat is the data
+# nb_var is the number of selected variables
+# k is the number of latent class generated
+# nbr_repet is the number of repetition to
+# reach the convergence of EM algorithm
+# x es el código para las variables de los modelos
+#seed es el numero random para las semillas. ej: 4345.
+#Modo de calcular el mejor modelo.
+old <- Sys.time()
+lca_entropia(x="primer_lca",seed = 4345,k=12,f=f_df, dat=mydata, nbr_repet = 5,na_rm=T) #clus_iter
+#lca_select(f_naq, mydata_naq,k=10,nbr_repet=clus_iter, x="naq", seed=4345)
+#</div>
+new<-(Sys.time())
+warning("Time taken in process: ");new-old
+#Within poLCA, parameter estimates are obtained by a procedure that repeatedly improves estimates.
+#This is stopped when no further improvements are obtained, or until a maximum number of iterations is reached. The starting values are the values at which such repetitions were started. Increasing the number 4 R. ACHTERHOF ET AL.of iterations (cycles within each estimation) and setting more different starting values for each repetition results in a greater likelihood that the global (rather than local) maximum of the log-likelihood function (and thus, the best possible solution) is reached. The maximum number of iterations was chosen as 10.000, and 500 different sets of starting values were used (thus going beyond the recommendations by Linzer & Lewis, 2011; Oberski, 2016). As such, the influence of chance was minimized while the reproducibility of the results was maximized.
+```
+
+<div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:700px; overflow-x: scroll; width:100%">
+```{r paso3_select_best_model,eval=T, echo=T, paged.print=TRUE, eval=T}
+#Si probs.start se establece en NULL (predeterminado) al llamar Polca, a continuación, la función genera los valores de partida al azar en cada ejecución. Esto significa que repite carreras de Polca normalmente producirán resultados con los mismos parámetros estimados (correspondiente a la misma el máximo diario de probabilidad), pero con etiquetas de clase latentes reordenados
+lc_entropy_best_model_lca<-lc_entropy_best_model
+lc_entropy_table_lca<-lc_entropy_table
+
+#A list of matrices of class-conditional response probabilities to be used as the starting values for the estimation algorithm. Each matrix in the list corresponds to one manifest variable, with one row for each latent class, and one column for each outcome. The default is NULL, producing random starting values. Note that if nrep>1, then any user-specified probs.start values are only used in the first of the nrep attempts.
+
+#The poLCA.reorder function takes as its first argument the list of starting values probs.start, and as its second argument a vector describing the desired reordering of the latent classes.
+new.probs.start <-  poLCA.reorder(lc_entropy_best_model_lca$probs.start, order(lc_entropy_best_model_lca$P, decreasing = T))
+#new.probs.start <-poLCA.reorder(probs.start,c(4,1,3,2))
+#A continuación, ejecute PoLCA, una vez más, esta vez utilizando los valores iniciales reordenados en la llamada de función.
+
+#The argument nrep=5 tells the program to repeat nrep times, and keep the fit with the highest likelihood to try to avoid local maxima.
+
+#.maxiter – The maximum number of iterations through which the estimation algorithm will cycle.
+#.nrep - Number of times to estimate the model, using different values of probs.start. (default is one)
+set.seed(4345)
+LCA_best_model_final<-
+   poLCA(f_df, mydata, nclass=length(lc_entropy_best_model_lca$P), maxiter=10000,tol=1e-5, na.rm=FALSE,nrep=clus_iter, verbose=TRUE, calc.se=TRUE,probs.start=new.probs.start) 
+
+output_LCA_best_model_final<-capture.output(LCA_best_model_final)
+glance_LCA_best_model_final<-glance(LCA_best_model_final)
+df2_cor_table2_LCA <- broom::augment(LCA_best_model_final, data = meas_model_original_pred_lavaan[,c("a_dir","sexo","fa1","fa2","fa3","fa4")])
+```
+</div>
+
+```{r fig2_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 3. Selected Model", message=FALSE, error=T, eval=T, fig.height=15}
+## If you are interested in the population-shares of the classes, you can get them like this:
+invisible(round(colMeans(LCA_best_model_final$posterior)*100,2))
+## or you inspect the estimated class memberships:
+invisible(round(prop.table(table(LCA_best_model_final$predclass)),4)*100)
+
+lcmodel_a <- reshape2::melt(LCA_best_model_final$probs, level=2)
+lcmodel_a2<-
+lcmodel_a %>% 
+  dplyr::mutate(L2=factor(L2, levels=c("tamizaje_ans", "tamizaje_dep","p8_exp_c19_cerca_cont_rec",paste0("p12_13_nec_insuf_0",c(1,2,3,4,6,7,9)),paste0("p40_cond_trab_istas_0",6:9),"p45_demo_sexo"),labels=c("ansiedad","depresion","contact_covid",paste0("nec_insuf_",c("gu","po","pf","ov","mq","m95","de")),paste0("istas_",c("sup_esc","sup_ayu","comp_ayu","amb_comp")),"sexo"), ordered=T)) %>% 
+  dplyr::mutate(Var2 = factor(dplyr::case_when(as.character(Var2)=="Pr(6)"~"Pr miss",
+                                               TRUE~as.character(Var2))))
+zp1 <- ggplot(lcmodel_a2,aes(x = L2, y = value, fill = Var2))
+zp1 <- zp1 + geom_bar(stat = "identity", position = "stack")
+zp1 <- zp1 + facet_grid(Var1 ~ .) 
+zp1 <- zp1 + scale_fill_brewer(type="seq", palette="Greys", na.value = "white") +theme_bw()
+zp1 <- zp1 + labs(y = "Percentage of Probabilities of Response", 
+                  x = "Items",
+                  fill ="Cateorías de\nRespuesta")
+zp1 <- zp1 + theme( axis.text.y=element_blank(),
+                    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                    axis.ticks.y=element_blank(),                    
+                    panel.grid.major.y=element_blank())
+zp1 <- zp1 + guides(fill = guide_legend(reverse=TRUE))
+print(zp1)
+
+jpeg("_Fig_LCA.jpg", height = 7, width = 11.5, units = 'in', res = 600)
+zp1+ theme(plot.background = element_rect(fill=NA, color = NA))
+dev.off()
+```
+
+```{r paso4_bvr,eval=T, echo=T, paged.print=TRUE, eval=T}
+#In this case, residuals are actual cell counts vs. expected cell counts. 
+bvr_LCA_best_model<-bvr(LCA_best_model_final)
+
+#conditional probabilities
+#Pr(B1=1|Class 3)
+posteriors <- data.frame(LCA_best_model_final$posterior, predclass=LCA_best_model_final$predclass) 
+
+library(plyr)
+classification_table <- plyr::ddply(posteriors, ~predclass, function(x) colSums(x[,1:length(lc_entropy_best_model_lca$P)]))
+clasification_errors<- 1 - sum(diag(as.matrix(classification_table[,2:(length(lc_entropy_best_model_lca$P)+1)]))) / sum(classification_table[,2:(length(lc_entropy_best_model_lca$P)+1)]) 
+
+paste0("Error de clasificación: ", scales::percent(as.numeric(clasification_errors),accuracy=.01))
+
+detach("package:plyr", unload=TRUE)
+
+#\#minimum average posterior robability of cluster membership (\>0.7), interpretability (classes are clearly distinguishable), and parsimony (each class has a sufficient sample size for further analysis; n≥50).
+```
+
+<br>
+
+Ver si la exclusión de casos que no calzan en alguna clase tiene consecuencias.
+
+<br>
+
+```{r fig1_Comparison, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 2. Comparative of models of latent classes (2 to 7, from left to right)", message=FALSE, error=T, eval=T, fig.height=10}
+to_string <- as_labeller(c(`0` = "Sig. Outcomes", `1` = "Non Sig. Outcomes"))
+
+manualcolors<-c('indianred1','cornflowerblue', 'gray50', 'darkolivegreen4', 'slateblue2', 
+                'firebrick4', 'goldenrod4')
+#"#FF0000" "#00A08A" "#F2AD00" "#F98400" "#5BBCD6"
+#"#798E87" "#C27D38" "#CCC591" "#29211F"
+
+lc_entropy_table%>%
+  #dplyr::mutate_at(.vars=vars(Gsq, Llik, AIC, mAIC, AICc, HT, cAIC, AICu, BIC, aBIC, HQ), .funs = funs(`zw`=scale(.)))%>%
+  tidyr::pivot_longer(cols = -Nclass,names_to="indices", values_to="value",values_drop_na = F)%>%
+  #dplyr::group_by(Nclass)%>%
+  
+  dplyr::mutate(indices=factor(indices, levels=c('resid. df', 'likelihood-ratio', 'log-likelihood',"LLik_pval",'Chi2', 'Chi2_pval', 'BIC', 'aBIC', 'cAIC',"Entropy","Entropy.R2","Dev Change","df","pval"),labels=c('Degrees of Freedom', "Deviance","Log-Likelihood",'p value','Chi2','p value','Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC","Entropy","Entropy R2", "Deviance Change\n(with previous model)", "df", "pval of diffs"))) %>% 
+  dplyr::filter(indices %in% c('Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC")) %>%
+  dplyr::mutate(Nclass=factor(Nclass)) %>% 
+  ggplot(aes(x=Nclass,y=value,color=indices, group=indices))+
+  geom_line()+
+  geom_point()+
+  theme_classic()+
+  labs(x="Number of Classes", y="Value")+
+  labs(color = "Indices")+
+  geom_vline(xintercept=length(lc_entropy_best_model_lca$P)-1)+
+  labs(caption="Vertical line= Selected model")
+#,'Gsq_zw', 'Llik_zw', 'AIC_zw', 'mAIC_zw', 'AICc_zw', 'HT_zw', 'cAIC_zw', 'AICu_zw', 'BIC_zw', 'aBIC_zw', 'HQ_zw'
+
+#lca_selectnaq %>% dplyr::arrange(BIC) 
+
+#International Journal of Workplace Health Management  (Zhang et al., 2018).
+
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+
+jpeg("_Fig_lc_entropy_table3.jpg", height = 7, width = 11.5, units = 'in', res = 600)
+
+
+lc_entropy_table%>%
+  #dplyr::mutate_at(.vars=vars(Gsq, Llik, AIC, mAIC, AICc, HT, cAIC, AICu, BIC, aBIC, HQ), .funs = funs(`zw`=scale(.)))%>%
+  tidyr::pivot_longer(cols = -Nclass,names_to="indices", values_to="value",values_drop_na = F)%>%
+  #dplyr::group_by(Nclass)%>%
+  
+  dplyr::mutate(indices=factor(indices, levels=c('resid. df', 'likelihood-ratio', 'log-likelihood',"LLik_pval",'Chi2', 'Chi2_pval', 'BIC', 'aBIC', 'cAIC',"Entropy","Entropy.R2","Dev Change","df","pval"),labels=c('Degrees of Freedom', "Deviance","Log-Likelihood",'p value','Chi2','p value','Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC","Entropy","Entropy R2", "Deviance Change\n(with previous model)", "df", "pval of diffs"))) %>% 
+  dplyr::filter(indices %in% c('Akaike Information\nCriterion',"Bayesian Information\nCriterion (BIC)","Adjusted BIC")) %>%
+  dplyr::mutate(Nclass=factor(Nclass)) %>% 
+  ggplot(aes(x=Nclass,y=value,color=indices, group=indices))+
+  geom_line()+
+  geom_point()+
+  theme_classic()+
+  labs(x="Number of Classes", y="Value")+
+  labs(color = "Indices")+
+  geom_vline(xintercept=length(lc_entropy_best_model_lca$P)-1)+
+  labs(caption="Vertical line= Selected model")
+
+dev.off()
+```
+
+<br>
+
+```{r fig3_perfiles, echo=T, fig.align='center', fig.pos='H', fig.cap= "Figure 3. Perfil datos empíricos", message=FALSE, error=T, eval=T, fig.height=10}
+bars_probs_lca<-
+reshape2::melt(dplyr::mutate_at(df2_cor_table2_LCA,.vars=vars(paste0("fa",1:4)),.funs = ~factor(cut2(., g =5),labels=paste0("quintil ",1:5))), id.vars=c(".class",".probability")) %>% 
+    dplyr::group_by(.class, variable, value) %>% 
+    dplyr::summarise(n=n()) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::group_by(.class,variable) %>% 
+    dplyr::mutate(prob=round(n/sum(n),3)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::mutate(variable=dplyr::case_when(variable=="fa1"~"Factor 1\nPuntajes",
+                                            variable=="fa2"~"Factor 2\nPuntajes",
+                                            variable=="fa3"~"Factor 3\nPuntajes",
+                                            variable=="fa4"~"Factor 4\nPuntajes",
+                                            variable=="fa5"~"Factor 1\nPuntajes",
+                                            T~as.character(variable))) %>% 
+  dplyr::arrange(.class, variable, value) %>% 
+  dplyr::mutate(variable=factor(variable,levels=c("a_dir","sexo",paste0("Factor ",1:5,"\nPuntajes"))),value=factor(value)) %>% 
+ggplot(aes(x = variable, y = prob, fill = value))+
+    geom_bar(stat = "identity", position = "stack")+
+    facet_grid(.class ~ .)+ 
+    #scale_fill_brewer(type="seq", palette="Greys", na.value = "white")+
+    scale_fill_manual(values=c("NA"="darkred","Ventas"="#1A1A1A", "RRHH"="#3C3C3C", "Op. & Client."="#5E5E5E", "Marketing Clientes"="#808080", "Marketing"="#A2A2A2", "Gcia. General"="#C3C3C3", "Admin. & Fin."="#E6E6E6", "F"="#3C3C3C","H"="#A2A2A2", "quintil 1"="#3C3C3C", "quintil 2"="#5E5E5E", "quintil 3"="#808080", "quintil 4"="#A2A2A2", "quintil 5"="#C3C3C3"), na.value="darkred")+#gray(seq(.1,.9,len = 7))
+    theme_bw()+
+    labs(y = "Porcentaje de Respuestas", 
+                  x = "Items",
+                  fill ="Cateorías de\nRespuesta")+
+    theme( axis.text.y=element_blank(),
+                    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+                    axis.ticks.y=element_blank(),                    
+                    panel.grid.major.y=element_blank())+
+    guides(fill = guide_legend(reverse=T))
+
+
+ggplotly(bars_probs_lca)%>%#, tooltip = c("label_text")
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+---
+
+<div id="refs"></div>
+
+# Compilación
+
+```{r save_export, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+save.image("__lca_feb_2022.RData")
+```
+
+# Información de la Sesión
+
+```{r session_info, echo=T, paged.print=TRUE}
+Sys.getenv("R_LIBS_USER")
+rstudioapi::getSourceEditorContext()
+
+
+cbind.data.frame(label=data.frame(attr(unlist(sessionInfo()$R.version),"names")),data.table::data.table(unlist(sessionInfo()$R.version))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Propiedades del documento"),
+               col.names = c("Categoría","Valor"),
+               align =c('l',rep('c', 101)),
+               escape=T)%>%
+    kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 12)
+
+sessionInfo()$locale
+sessionInfo()$running
+
+sesion_info <- devtools::session_info()
+dplyr::select(
+  tibble::as_tibble(sesion_info$packages),
+  c(package, loadedversion, source)
+) %>% 
+  DT::datatable(filter = 'top', colnames = c('Row number' =1,'Variable' = 2, 'Percentage'= 3),
+              caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: left;',
+        '', htmltools::em('Paquetes estadísticos utilizados')),
+      options=list(
+initComplete = htmlwidgets::JS(
+      "function(settings, json) {",
+      "$(this.api().tables().body()).css({'font-size': '80%'});",
+      "}")))
+unlink("*_cache", recursive = T, force = T, expand = TRUE)
+```
+
+

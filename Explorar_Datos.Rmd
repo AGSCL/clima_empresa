@@ -1,0 +1,1756 @@
+---
+title: "Explorar Datos Consolidados"
+output:
+  distill::distill_article:
+    code_folding: true
+    fig_height: 6
+    fig_width: 8
+    theme: spacelab
+    toc: yes
+    toc_depth: 5
+    toc_float: yes
+    output_dir: "docs"
+  toc_float:
+    collapsed: false
+    smooth_scroll: true
+---
+
+```{css zoom-lib-src, echo = FALSE}
+script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
+```
+
+```{js zoom-jquery, echo = FALSE}
+ $(document).ready(function() {
+    $('body').prepend('<div class=\"zoomDiv\"><img src=\"\" class=\"zoomImg\"></div>');
+    // onClick function for all plots (img's)
+    $('img:not(.zoomImg)').click(function() {
+      $('.zoomImg').attr('src', $(this).attr('src')).css({width: '100%'});
+      $('.zoomDiv').css({opacity: '1', width: 'auto', border: '1px solid white', borderRadius: '5px', position: 'fixed', top: '50%', left: '50%', marginRight: '-50%', transform: 'translate(-50%, -50%)', boxShadow: '0px 0px 50px #888888', zIndex: '50', overflow: 'auto', maxHeight: '100%'});
+    });
+    // onClick function for zoomImg
+    $('img.zoomImg').click(function() {
+      $('.zoomDiv').css({opacity: '0', width: '0%'}); 
+    });
+  });
+```
+
+```{=html}
+<style type="text/css">
+.tablelines table, .tablelines td, .tablelines th {
+  border: 1px solid black;
+  }
+.centrado {
+  text-align: center;
+}
+.table.center {
+  margin-left:auto; 
+  margin-right:auto;
+}
+.table_wrapper{
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+code.r{
+  font-size: 8px;
+}
+body{ /* Normal  */
+    text-align: justify;
+}
+.superbigimage{
+  overflow-y:scroll;
+  white-space: nowrap;
+}
+.superbigimage img{
+  overflow-y: scroll;
+  overflow-x: hidden;
+}
+p.comment {
+  background-color: #FF7F79;
+    padding: 10px;
+  border: 1px solid black;
+  margin-left: 25px;
+  border-radius: 5px;
+  font-style: italic;
+}
+</style>
+```
+```{=html}
+<style>
+  p.comment {
+    background-color: #ff9a9a;
+      padding: 10px;
+    border: 1px solid red;
+    margin-left: 25px;
+    border-radius: 5px;
+    font-style: italic;
+  }
+
+</style>
+```
+```{r setup0, include=FALSE}
+rm(list=ls());gc()
+# xaringan::inf_mr()
+unlink('Explorar_Datos_cache', recursive = TRUE)
+`%>%` <- magrittr::`%>%`
+if(!require(guaguas)){install.packages("guaguas")}
+if(!require(fuzzyjoin)){install.packages("fuzzyjoin")}
+
+invisible("homologar a un sexo los nombres")
+guagua_rec_m<-
+guaguas %>% 
+  #Se recodifica la base entre los nombres nacidos antes de la vuelta a la democracia
+  #y aquellos que nacieron en demoracia
+    dplyr::group_by(nombre, sexo) %>% 
+  #Generamos un recuento de cada nombre por sexo y por grupo de años a los que corresponde
+  #(antes o después de la vuelta a la democracia)
+    dplyr::summarise(n=mean(n,na.rm=T)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::group_by(nombre) %>% 
+    dplyr::summarise(proporcion=sum(n[sexo=="M"],na.rm=T)/sum(n,na.rm=T)) %>% 
+    dplyr::filter(proporcion>.5) %>% 
+    dplyr::ungroup() 
+guagua_rec_f<-
+guaguas %>% 
+  #Se recodifica la base entre los nombres nacidos antes de la vuelta a la democracia
+  #y aquellos que nacieron en demoracia
+    dplyr::group_by(nombre, sexo) %>% 
+  #Generamos un recuento de cada nombre por sexo y por grupo de años a los que corresponde
+  #(antes o después de la vuelta a la democracia)
+    dplyr::summarise(n=mean(n,na.rm=T)) %>% 
+    dplyr::ungroup() %>% 
+    dplyr::group_by(nombre) %>% 
+    dplyr::summarise(proporcion=sum(n[sexo=="F"],na.rm=T)/sum(n,na.rm=T)) %>% 
+    dplyr::filter(proporcion>.5) %>% 
+    dplyr::ungroup() 
+
+invisible("homologar a un sexo los nombres y luego enmascarar")
+encuesta_pre <- 
+ readr::read_delim("https://docs.google.com/spreadsheets/u/0/d/1Jy1xa_iKnxIHfILPCs_sv19nOlcwuVUm/export?format=tsv&id=1Jy1xa_iKnxIHfILPCs_sv19nOlcwuVUm&gid=1636561072", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE, skip = 9) 
+encuesta<-  
+encuesta_pre %>%   
+    dplyr::mutate(`Ingresa tu correo electrónico Verisure`=  sub("\\..*", "", `Ingresa tu correo electrónico Verisure`)) %>% 
+   stringdist_join(dplyr::bind_rows(cbind(guagua_rec_f,sexo="F"),cbind(guagua_rec_m,sexo="H")),by=c("Ingresa tu correo electrónico Verisure"="nombre"),max_dist = .85, mode="left",distance_col="distance") %>% 
+    dplyr::mutate(`correos corregidos 04 08`=ifelse(`correos corregidos 04 08`!="", anonymizer::anonymize(`correos corregidos 04 08`, .algo = "sha256", .seed = 2125),NA_character_)) %>% 
+    dplyr::mutate(`Ingresa tu correo electrónico Verisure`=ifelse(`Ingresa tu correo electrónico Verisure`!="", anonymizer::anonymize(`Ingresa tu correo electrónico Verisure`, .algo = "sha256", .seed = 2125),NA_character_))%>% 
+    dplyr::select(-nombre,-distance)
+
+#
+if(isTRUE(getOption('knitr.in.progress'))==T){
+    clus_iter=5000
+} else {
+  input <- readline('¿Are you gonna run the dataset with the whole iterations? (Si/No): ')
+  if(input=="Si"){
+    clus_iter=10000
+  } else {
+    clus_iter=1000
+  }
+}
+library(tm)
+if(isTRUE(getOption('knitr.in.progress'))==T){
+  input2 <- "todas"
+} else {
+    input2 <- "todas"
+    input2 <- Corpus(VectorSource(input2))
+    input2 <- tm_map(input2, tolower)
+    input2 <- tm_map(input2,stripWhitespace)
+    input2 <- gsub(" ","_",as.character(unlist(input2)[1]))
+}
+```
+
+```{r setup, include=T, message=F, warning=F, error=T}
+#evitar que ocupe curl
+#options(renv.download.override = utils::download.file)
+
+#arriba puse algunas opciones para que por defecto escondiera el código
+#también cargue algunos estilo .css para que el texto me apareciera justificado, entre otras cosas.
+local({r <- getOption("repos")
+       r["CRAN"] <- "http://cran.r-project.org" 
+       options(repos=r)
+})
+
+clipboard <- function(x, sep="\t", row.names=FALSE, col.names=TRUE){
+     con <- pipe("xclip -selection clipboard -i", open="w")
+     write.table(x, con, sep=sep, row.names=row.names, col.names=col.names)
+     close(con)
+}
+
+copy_names <- function(x,row.names=FALSE,col.names=TRUE,dec=",",...) {
+  library(dplyr)
+  if(class(ungroup(x))[1]=="tbl_df"){
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(data.frame(x)),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)    
+    }
+  } else {
+    if(options()$OutDec=="."){
+      options(OutDec = dec)
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ".")
+      return(x)
+    } else {
+      options(OutDec = ",")
+      write.table(format(x),"clipboard",sep="\t",row.names=FALSE,col.names=col.names,...)
+      options(OutDec = ",")
+      return(x)       
+    }
+  }
+}  
+
+if(!require(pacman)){install.packages("pacman")}
+
+pacman::p_unlock(lib.loc = .libPaths()) #para no tener problemas reinstalando paquetes
+knitr::opts_chunk$set(
+    echo = TRUE,
+    message = FALSE,
+    warning = FALSE
+)
+#dejo los paquetes estadísticos que voy a utilizar
+
+if(!require(plotly)){install.packages("plotly")}
+if(!require(lubridate)){install.packages("lubridate")}
+if(!require(htmlwidgets)){install.packages("htmlwidgets")}
+#if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(gganimate)){install.packages("gganimate")}
+if(!require(readr)){install.packages("readr")}
+if(!require(stringr)){install.packages("stringr")}
+if(!require(data.table)){install.packages("data.table")}
+if(!require(DT)){install.packages("DT")}
+if(!require(ggplot2)){install.packages("ggplot2")}
+if(!require(lattice)){install.packages("lattice")}
+if(!require(janitor)){install.packages("janitor")}
+if(!require(rjson)){install.packages("rjson")}
+if(!require(estimatr)){install.packages("estimatr")} 
+if(!require(textreg)){install.packages("textreg")}
+if(!require(sjPlot)){install.packages("sjPlot")}
+if(!require(foreign)){install.packages("foreign")}
+if(!require(tsModel)){install.packages("tsModel")}
+if(!require(lmtest)){install.packages("lmtest")}
+if(!require(Epi)){install.packages("Epi")}
+if(!require(splines)){install.packages("splines")}
+if(!require(vcd)){install.packages("vcd")}
+if(!require(astsa)){install.packages("astsa")}
+if(!require(MASS)){install.packages("MASS")}
+if(!require(ggsci)){install.packages("ggsci")}
+if(!require(Hmisc)){install.packages("Hmisc")}
+if(!require(compareGroups)){install.packages("compareGroups")}
+if(!require(dplyr)){install.packages("dplyr")}
+if(!require(ggforce)){install.packages("ggforce")}
+if(!require(doParallel)){install.packages("doParallel")}
+if(!require(SCtools)){install.packages("SCtools")}
+if(!require(rio)){install.packages("rio")}
+if(!require(rbokeh)){install.packages("rbokeh")}
+if(!require(altair)){install.packages("altair")}
+if(!require(sqldf)){install.packages("sqldf")} 
+if(!require(devtools)){install.packages("devtools")}
+if(!require(ExPanDaR)){install.packages("ExPanDaR")}
+if(!require(skimr)){install.packages("skimr")}
+if(!require(tm)){install.packages("tm")} 
+if(!require(wordcloud2)){install.packages("wordcloud2")}
+if(!require(wordcloud)){install.packages("wordcloud")}
+if(!require(RColorBrewer)){install.packages("RColorBrewer")}
+if(!require(psych)){install.packages("psych")}
+if(!require(GPArotation)){install.packages("GPArotation")}
+if(!require(mvtnorm)){install.packages("mvtnorm")}
+if(!require(polycor)){install.packages("polycor")}
+if(!require(MVN)){install.packages("MVN")}
+if(!require(ggcorrplot)){install.packages("ggcorrplot")}
+if(!require(radiant)){install.packages("radiant")}
+if(!require(homals)){install.packages("homals")}
+if(!require(nFactors)){install.packages("nFactors")}
+if(!require(ggiraph)){install.packages("ggiraph")}
+if(!require(factoextra)){install.packages("factoextra")}
+if(!require(tidyverse)){install.packages("tidyverse")}
+if(!require(lubridate)){install.packages("lubridate")}
+if(!require(ggfortify)){install.packages("ggfortify")}
+if(!require(survminer)){install.packages("survminer")}
+if(!require(rpivotTable)){install.packages("rpivotTable")}
+if(!require(anonymizer)){devtools::install_github("paulhendricks/anonymizer")}
+
+# Calculate the number of cores
+#no_cores <- detectCores() - 1
+##cl<-makeCluster(no_cores)
+#registerDoParallel(cl)
+# sudo apt -y install libfontconfig1-dev
+# sudo apt-get install libxml2-dev
+#Sys.setlocale(category = "LC_ALL", locale = "english")
+#locale("es", decimal_mark = ",")
+
+
+find_type <- function(x) {
+  case_when(
+    is.factor(x) ~ "factor",
+    is.character(x) ~ "character",
+    is.numeric(x) ~ "numeric",
+    TRUE ~ "not sure"
+  )
+}
+
+permute_icc <- function(x, y, n = 99) {
+  actual <- ICCbare(x, y)
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- ICCbare(scrambled_x, y)
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+permute_tau <- function(x, y, n = 99) {
+  actual <- GKtau(x, y)$tauxy
+  nulls <- vector(length = length(n), mode = "numeric")
+  for(i in seq_along(1:n)) {
+    scrambled_x <- sample(x, length(x), replace = F)
+    nulls[i] <- GKtau(scrambled_x, y)$tauxy
+  }
+  (sum(abs(nulls) > ifelse(actual > 0, actual, -actual)) + 1) / (n+1)
+}
+
+# to do:
+## get p-values
+
+eda <- function(x, plot = FALSE) {
+  
+  x <- as.data.frame(x)
+  
+  num_rows <- ncol(x)^2 - ncol(x)
+  df <- tibble(var1 = vector(mode = "character", length = 1),
+               var2 = vector(mode = "character", length = 1),
+               statistic = vector(mode = "character", length = 1),
+               value = vector(mode = "double", length = 1),
+               p_value = vector(mode = "double", length = 1),
+               n = vector(mode = "integer", length = 1))
+  
+  for(i in seq_along(1:ncol(x)))
+    for(j in seq_along(1:ncol(x))) {
+      if(i < j){
+        # get type of columns i and j
+        var_1_type <- find_type(x[,i])
+        var_2_type <- find_type(x[,j])
+        #print(paste("var1 type: ", var_1_type, "\nvar2 type: ", var_2_type, "\n\n"))
+        
+        x1 <- x[,i]
+        x2 <- x[,j]
+        
+        # remove NAs for simplicity
+        if(any(is.na(x1))){
+          # get NA indicies
+          ind <- which(is.na(x1))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        if(any(is.na(x2))){
+          # get NA indicies
+          ind <- which(is.na(x2))
+          x1 <- x1[-ind]
+          x2 <- x2[-ind]
+        }
+        
+        # make sure x1 and x2 are the same length
+        stopifnot(length(x1) == length(x2))
+        
+        n <- length(x1)
+        
+        if(var_1_type == "numeric" & var_2_type == "numeric") {
+          # run a correlation
+          result <- cor.test(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "r",
+                        value = result$estimate,
+                        p_value = result$p.value,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "numeric") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x1))
+          require(ICC)
+          result <- ICCbare(x1, x2)
+          p <- permute_icc(x1, x2)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "numeric" & var_2_type == "factor") {
+          # run an ANOVA or t-test, depending on number of levels
+          num_levels <- length(levels(x2))
+          require(ICC)
+          result <- ICCbare(x2, x1)
+          p <- permute_icc(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "ICC",
+                        value = result,
+                        p_value = p,
+                        n = n
+          )
+        } else if(var_1_type == "factor" & var_2_type == "factor") {
+          require("GoodmanKruskal")
+          # compute the GKtau statistic
+          stat1 <- GKtau(x1, x2)$tauxy
+          stat2 <- GKtau(x1, x2)$tauyx
+          p1 <- permute_tau(x1, x2)
+          p2 <- permute_tau(x2, x1)
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = "tau",
+                        value = stat1,
+                        p_value = p1,
+                        n = n
+          )
+          df <- add_row(df, 
+                        var1 = names(x)[j],
+                        var2 = names(x)[i],
+                        statistic = "tau",
+                        value = stat2,
+                        p_value = p2,
+                        n = n
+          )
+        } else{
+          # return an empty row
+          df <- add_row(df, 
+                        var1 = names(x)[i],
+                        var2 = names(x)[j],
+                        statistic = NA_character_,
+                        value = NA_integer_,
+                        p_value = NA_real_,
+                        n = n
+          )
+        }
+      }
+    }
+  if(plot == TRUE) {
+    df[-1,] %>%
+      filter(!is.na(value)) %>%
+      unite(variables, var1, var2, sep = " by ") %>%
+      mutate(`possibly significant` = if_else(p_value < 0.05, "significant", "NS")) %>%
+      ggplot(aes(y = value, x = reorder(variables, value), color = `possibly significant`)) +
+      geom_point() +
+      coord_flip() +
+      facet_wrap(~statistic, scales = "free") +
+      theme_minimal() +
+      scale_color_manual(values = c("#37454B", "#E84F22"))
+  } else{
+    df[-1,]
+  }
+  
+}
+  m <- list(
+    l = 100,
+    r = 50,
+    b = 0,
+    t = 0,
+    pad = 4
+  )
+check_code <- function(expr, available){
+  if(available){
+    eval(parse(text = expr))
+  } else {
+    expr
+  }
+}
+```
+
+```{r datasets_cons_spss2, echo=T, cache= T, paged.print=TRUE, warning=F, eval=T}
+
+invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
+#`
+
+names_df_ori<-encuesta %>%  names()
+names_df_proc<-encuesta %>% janitor::clean_names() %>% names()
+```
+
+<br>
+
+# Fecha: `r format(Sys.time(), '%d %B, %Y')`
+
+# Obtención de Base de Datos
+
+En primer lugar, bajamos los datos y utilizamos un nombre para las columnas más facil de procesar por los distintos programas informáticos de análisis estadístico.
+
+<br>
+
+```{r datasets_cons1a, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+#Ver las etiquetas y las variables
+#Ver als etiquetas y las variables
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#
+#fecha de respuesta
+names_df_proc[7]<-names_df_proc[8]
+names_df_ori[7]<-names_df_ori[8]
+
+names_df_proc[8]<-"Función"
+names_df_ori[8]<-"Función"
+
+for (i in 1:length(names_df_ori)){
+     attr(names_df_ori, "names")[[i]]<- names_df_proc[[i]]
+}
+
+for (i in 1:length(names_df_ori)){
+if(attributes(names_df_ori)$name[i]=="proporcion") 
+attributes(uss_rec)$variable.labels[i]<-"Proporción de guaguas en el determinado sexo"
+if(attributes(names_df_ori)$name[i]=="sexo") 
+attributes(uss_rec)$variable.labels[i]<-"Sexo"
+}
+
+colnames_encuesta<- c("cor_ele","nombre","tel","fecha","correo_val","correo_val_cor","fecha_resp","funcion","a_dir","b_ger", "c_area", paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3), "enps_lugar_trab","enps_prod_serv","obs_gen","prop_sex","sexo")
+
+dt_names<-
+dplyr::bind_cols(original=names_df_ori,limpiada=names_df_proc,etiqueta=colnames_encuesta)
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#
+
+colnames(encuesta)<-colnames_encuesta
+```
+
+<br>
+
+Posteriormente, le añadimos los nombres de las variables a la base de datos.
+
+<br>
+
+```{r datasets_cons_attr_names, echo=T, cache= T, paged.print=TRUE, warning=F, eval=T, error=T}
+  for (i in 1:length(names_df_proc)){
+          attributes(encuesta)$"variable.labels"[i]<- names_df_ori[i] 
+  }
+```
+
+<br>
+
+Las variables fueron recodificadas y estandarizadas de acuerdo a cómo se exhiben en el cuestionario, incluyendo las etiquetas que no se encuentran presentes debido a que nadie ha contestado en alguna de esas categorías.
+
+<br>
+
+```{r format_variables, echo=T, cache= T, paged.print=TRUE, warning=T, error=T}
+#funcion  a_dir b_ger c_area
+encuesta %>%
+  dplyr::mutate(across(c("funcion","a_dir", "b_ger","c_area"), ~dplyr::case_when(.=="#N/A"~NA_character_,.=="#REF!"~NA_character_,.=="NA"~NA_character_,T~.))) %>% 
+  #dplyr::mutate(cons_inf=ifelse(grepl("acepto participar",as.character(cons_inf)),"Sí","No")) %>% 
+  dplyr::mutate(across(c(paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)), ~stringr::str_remove(stringr::str_trim(.), "\\.$"))) %>% 
+  dplyr::mutate(across(c(paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)), ~stringr::str_remove(stringr::str_trim(as.character(.)), "\\.$"))) %>% 
+    dplyr::mutate(across(c(paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)), ~factor(parse_factor(as.character(.), levels=c("1","2","3","4","5"), trim_ws=T, include_na =F), labels=c("Muy en desacuerdo","En desacuerdo","Ni de acuerdo ni en desacuerdo", "De acuerdo", "Muy de acuerdo"), ordered=T))) %>% 
+  dplyr::mutate(sexo=factor(sexo)) %>% 
+    assign("encuesta_rec",.,envir=.GlobalEnv)
+
+#En esta empresa no se tolera el bajo desempeño ---> No está
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+```
+
+<br>
+
+# Exploración de Datos
+
+```{r exp1, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+options(knitr.kable.NA = '')
+
+var_lbls_no_char<-
+    data.frame(nam=attributes(encuesta_rec)$"names",
+               var_lab=attributes(encuesta_rec)$"variable.labels") %>% 
+      dplyr::right_join(encuesta_rec%>% dplyr::select(-(cor_ele:fecha_resp))%>%
+       dplyr::select(-where(is.character)) %>% names() %>% data.frame(), by=c("nam"="."))
+
+skimr_encuesta_rec<-
+encuesta_rec%>% dplyr::select(-(cor_ele:fecha_resp))%>%
+   dplyr::select(-where(is.character)) %>%
+  skimr::skim() %>% 
+  tibble::as_tibble() %>%
+  dplyr::mutate(complete_rate=scales::percent(complete_rate)) %>% 
+  dplyr::select(-numeric.hist)
+
+skimr_encuesta_rec %>% 
+  dplyr::left_join(var_lbls_no_char, by=c("skim_variable"="nam")) %>% 
+  dplyr::select(skim_type,skim_variable,var_lab, everything()) %>% 
+  knitr::kable(.,format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Tabla 1a. Resumen de Variables"),#,
+               col.names = c("Tipo","Variable","Etiqueta","Perdidos","% Completos",
+                            "Ordenado","Valores únicos","Más frecuentes","Media", "Desv.Est.","Min","Perc. 25", "Mediana", "Perc. 75", "Max"),
+align =c("c","l",rep('c', 101))) %>%
+  kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 9) %>%
+  kableExtra::scroll_box(width = "100%", height = "375px")
+```
+
+
+```{r tab3,dpi = 96, message=F, error=T,eval=T, warnings=F}
+rbind(
+cbind(cat="Fecha de entrega",
+encuesta_rec %>% 
+  dplyr::summarise(min = as.Date(min(unclass(as.Date.POSIXct(fecha)), na.rm=T), origin = "1970-01-01"),
+                   p025=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .025, na.rm=T), origin = "1970-01-01"),
+                   p25=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .25, na.rm=T), origin = "1970-01-01"),
+                   p50=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .5, na.rm=T), origin = "1970-01-01"),
+                   p75=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .75, na.rm=T), origin = "1970-01-01"),
+                   p975=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .975, na.rm=T), origin = "1970-01-01"),
+            max =  as.Date(max(unclass(as.Date.POSIXct(fecha)), na.rm=T), origin = "1970-01-01"))),
+cbind(cat="Fecha de respuesta",
+encuesta_rec %>% 
+  dplyr::summarise(min = as.Date(min(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), na.rm=T), origin="1970-01-01"),
+                   p025=as.Date(quantile(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), .025, na.rm=T), origin="1970-01-01"),
+                   p25=as.Date(quantile(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), .25, na.rm=T), origin="1970-01-01"),
+                   p50=as.Date(quantile(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), .5, na.rm=T), origin="1970-01-01"),
+                   p75=as.Date(quantile(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), .75, na.rm=T), origin="1970-01-01"),
+                   p975=as.Date(quantile(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), .975, na.rm=T), origin="1970-01-01"),
+            max = as.Date(max(unclass(as.Date(as.character(fecha_resp),format="%m/%d/%y", origin="1970-01-01")), na.rm=T), origin="1970-01-01")))
+) %>% 
+knitr::kable(format="html",caption= "Tabla 1b. Resumen de fechas") %>% #,col.names=c("Variables","Residential", "Ambulatory", "p-value")) %>% 
+    kableExtra::kable_classic(bootstrap_options = c("striped", "hover","condensed"),font_size= 10)
+#str(unclass(as.Date(as.character(encuesta_rec$fecha_resp),format="%m/%d/%y", origin="1970-01-01")))
+```
+
+<br>
+
+```{r hist_comp_sos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3a. Histograma de Frecuencias, Puntajes Ítems de Compromiso Sostenible", fig.align="center",error=T}
+# paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)
+
+p<-
+  encuesta_rec %>% 
+  dplyr::mutate(across(paste0("comp_sos_",1:9),~as.numeric(.),.names="num_{col}")) %>% 
+  dplyr::mutate(ptjes_comp_sos= base::rowSums(dplyr::select(.,paste0("num_","comp_sos_",1:9)),na.rm=T)) %>% 
+  ggplot(aes(x=ptjes_comp_sos), alpha=.7)+
+  sjPlot::theme_sjplot2() +
+labs(y = "Frecuencia",x="Suma de Puntajes",caption="Nota. Puntajes cero se deben a valores perdidos")+
+  geom_histogram(bins=10)
+#  scale_y_continuous(breaks=seq(0,200,25))+
+#  scale_x_continuous(breaks=seq(0,60,10))+
+tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px;border-radius:10px 20px 10px 20px;"
+ggiraph(code = {print(p)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
+```
+
+```{r hist_dllo_prof, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3b. Histograma de Frecuencias, Puntajes Ítems de Desarrollo Profesional", fig.align="center",error=T}
+p2<-
+  encuesta_rec %>% 
+  dplyr::mutate(across(paste0("dllo_prof_",1:3),~as.numeric(.),.names="num_{col}")) %>% 
+  dplyr::mutate(ptjes_dllo_prof= base::rowSums(dplyr::select(.,paste0("num_","dllo_prof_",1:3)),na.rm=T)) %>% 
+  ggplot(aes(x=ptjes_dllo_prof), alpha=.7)+
+  sjPlot::theme_sjplot2() +
+labs(y = "Frecuencia",x="Suma de Puntajes",caption="Nota. Puntajes cero se deben a valores perdidos")+
+  geom_histogram(bins=10)
+#  scale_y_continuous(breaks=seq(0,200,25))+
+#  scale_x_continuous(breaks=seq(0,60,10))+
+tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px;border-radius:10px 20px 10px 20px;"
+ggiraph(code = {print(p2)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
+```
+
+```{r hist_covid, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3c. Histograma de Frecuencias, Puntajes Ítems de COVID-19", fig.align="center",error=T}
+p3<-
+    encuesta_rec %>% 
+  dplyr::mutate(across(paste0("covid_",1:4),~as.numeric(.),.names="num_{col}")) %>% 
+  dplyr::mutate(ptjes_covid= base::rowSums(dplyr::select(.,paste0("num_","covid_",1:4)),na.rm=T)) %>% 
+  ggplot(aes(x=ptjes_covid), alpha=.7)+
+  sjPlot::theme_sjplot2() +
+labs(y = "Frecuencia",x="Suma de Puntajes",caption="Nota. Puntajes cero se deben a valores perdidos")+
+  geom_histogram(bins=10)
+  #scale_y_continuous(breaks=seq(0,100,5))+
+  #scale_x_continuous(breaks=seq(0,60,10))
+tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px;border-radius:10px 20px 10px 20px;"
+ggiraph(code = {print(p3)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
+```
+
+
+```{r hist_superv, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3d. Histograma de Frecuencias, Puntajes Ítems de Supervisor Inmediato", fig.align="center",error=T}
+p4<-
+    encuesta_rec %>% 
+  dplyr::mutate(across(paste0("superv_",1:3),~as.numeric(.),.names="num_{col}")) %>% 
+  dplyr::mutate(ptjes_covid= base::rowSums(dplyr::select(.,paste0("num_","superv_",1:3)),na.rm=T)) %>% 
+  ggplot(aes(x=ptjes_covid), alpha=.7)+
+  sjPlot::theme_sjplot2() +
+labs(y = "Frecuencia",x="Suma de Puntajes",caption="Nota. Puntajes cero se deben a valores perdidos")+
+  geom_histogram(bins=10)
+  #scale_y_continuous(breaks=seq(0,100,5))+
+  #scale_x_continuous(breaks=seq(0,60,10))
+tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px;border-radius:10px 20px 10px 20px;"
+ggiraph(code = {print(p4)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
+```
+
+<br>
+
+## Perdidas
+
+Contamos los datos perdidos por cada usuario en cada variable.
+
+<br>
+
+```{r datos_perdidos, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+encuesta_rec_miss<-
+encuesta_rec %>%
+  rowwise %>%
+  dplyr::mutate_at(.vars = vars(comp_sos_1:enps_prod_serv), # si fuera de SPSS, debiese ser p47_demo_medio_transp_otr
+                   .funs = list(`nas`=~ifelse(is.na(.), 1, 0))) %>% 
+  dplyr::ungroup() %>% 
+  rowwise %>%
+  dplyr::mutate(suma_parcial = sum(c_across(comp_sos_1_nas:enps_prod_serv_nas))) %>% #si fuera SPSS, debiese ser p47_demo_medio_transp_otr_nas
+  dplyr::select(-ends_with("_nas")) %>% 
+  dplyr::ungroup()
+
+encuesta_rec$suma_parcial<-encuesta_rec_miss$suma_parcial
+
+
+#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:#:
+#Agregar etiquetas
+for (i in 1:length(encuesta_rec_miss)){
+if(attributes(encuesta_rec_miss)$name[i]=="suma_parcial") {
+attributes(encuesta_rec)$variable.labels[i]<-"Suma de Valores Perdidos en Variables de Interés"
+}
+#attr()
+}
+```
+
+<br>
+
+Vemos un histograma de frecuencia de datos perdidos por usuario.
+
+<br>
+
+```{r hist_perdidos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 4. Histograma de Frecuencias, Valores perdidos en variables de interés", fig.align="center",error=T}
+p4<-ggplot(encuesta_rec_miss,aes(x=suma_parcial), alpha=.7)+
+  geom_histogram_interactive(bins=10)+
+  #   geom_vline(aes(xintercept=30), color="darkred", linetype="dashed")+
+  #   geom_vline(aes(xintercept=45), color="darkmagenta", linetype="solid")+
+  #   geom_vline(aes(xintercept=60), color="darkblue", linetype="dotted")+
+  sjPlot::theme_sjplot2() +
+  #facet_wrap(~motivodeegreso_mod_imp)+
+labs(y = "Frecuencia",x="Suma de Puntajes",caption="Línea vertical= Máximo de 3 valores perdidos atribuibles a combinaciones de respuesta por defecto")+
+  scale_y_continuous(breaks=seq(0,nrow(encuesta_rec_miss),25))+
+  scale_x_continuous(breaks=seq(0,160,10))+
+  geom_vline(xintercept = 9, col = 2, lty = 2)
+# xlim(c(-1,2000))
+tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px;border-radius:10px 20px 10px 20px;"
+ggiraph(code = {print(p4)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
+```
+
+<br>
+
+Generamos una medida `suma_parcial` que tiene la cantidad de datos perdidos por usuario (aunque ecluyendo los casos con mes de 9 puntos, los que serían similares a las preguntas que por diseño no van a contestar los participantes, porque no corresponden a esas categorías de respuesta, etc.).
+
+<br>
+
+## Descriptivo
+
+```{r comparativo_total,dpi = 320, message=F, error=T, eval=T, warnings=F}
+#rm(list=ls());gc()
+for (i in 1:length(encuesta_rec)){
+  x<-names(encuesta_rec)[i]
+attr(encuesta_rec[[x]],"label")<-attributes(encuesta_rec)$variable.labels[[i]]
+}
+
+library(compareGroups)
+
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_#_
+  table1_all <- suppressWarnings(compareGroups( ~ 
+      sexo+
+      b_ger+
+      comp_sos_1+
+      comp_sos_2+
+      comp_sos_3+
+      comp_sos_4+
+      comp_sos_5+
+      comp_sos_6+
+      comp_sos_7+
+      comp_sos_8+
+      comp_sos_9+
+      dllo_prof_1+
+      dllo_prof_2+
+      dllo_prof_3+
+      lid_1+
+      lid_2+
+      ent_trab_1+
+      ent_trab_2+
+      covid_1+
+      covid_2+
+      covid_3+
+      covid_4+
+      intencion_1+
+      com_1+
+      com_2+
+      ges_des_1+
+      ges_des_2+
+      comp_ben_1+
+      comp_ben_2+
+      superv_1+
+      superv_2+
+      superv_3+
+      enps_lugar_trab+
+      enps_prod_serv+
+        suma_parcial, 
+           method= c(
+      sexo=3,
+      b_ger=3,
+      comp_sos_1=3,
+      comp_sos_2=3,
+      comp_sos_3=3,
+      comp_sos_4=3,
+      comp_sos_5=3,
+      comp_sos_6=3,
+      comp_sos_7=3,
+      comp_sos_8=3,
+      comp_sos_9=3,
+      dllo_prof_1=3,
+      dllo_prof_2=3,
+      dllo_prof_3=3,
+      lid_1=3,
+      lid_2=3,
+      ent_trab_1=3,
+      ent_trab_2=3,
+      covid_1=3,
+      covid_2=3,
+      covid_3=3,
+      covid_4=3,
+      intencion_1=3,
+      com_1=3,
+      com_2=3,
+      ges_des_1=3,
+      ges_des_2=3,
+      comp_ben_1=3,
+      comp_ben_2=3,
+      superv_1=3,
+      superv_2=3,
+      superv_3=3,
+      enps_lugar_trab=2,
+      enps_prod_serv=2,
+      suma_parcial=2
+),
+    data = encuesta_rec,
+    include.miss = T, #baja el número de casos
+    p.corrected=T,
+    chisq.test.perm=T,
+    chisq.test.seed=1234,
+    var.equal=T)
+  )
+
+restab1_all <- createTable(table1_all, show.p.overall = T)
+
+pvals1 <- getResults(table1_all)
+#p.adjust(pvals, method = "BH")
+export2md(restab1_all, size=10, first.strip=T, hide.no="no", position="center",
+          format="html",caption= "Tabla 2. Descriptivo Aplicación Total",
+          col.names=c("Variables", "Todos los casos", "N")
+         )%>%
+  kableExtra::add_footnote(c("Note. N= Número de participantes con al menos una respuesta válida en las variables seleccionadas; Variables continuas se presentan como medianas y percentiles 25 y 75;", 
+                             "Variables categóricas son presentadas como el recuento y el porcentaje"), notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "800px")
+```
+
+
+
+```{r comparativo_sexo,dpi = 320, message=F, error=T, eval=F, warnings=F}
+#janitor::tabyl(p20_contr_cont_med_pev_1_simpler)
+#   p27_cond_trab_sup_jef
+table2_sex <- suppressWarnings(compareGroups(sexo ~ 
+      b_ger+
+      comp_sos_1+
+      comp_sos_2+
+      comp_sos_3+
+      comp_sos_4+
+      comp_sos_5+
+      comp_sos_6+
+      comp_sos_7+
+      comp_sos_8+
+      comp_sos_9+
+      dllo_prof_1+
+      dllo_prof_2+
+      dllo_prof_3+
+      lid_1+
+      lid_2+
+      ent_trab_1+
+      ent_trab_2+
+      covid_1+
+      covid_2+
+      covid_3+
+      covid_4+
+      intencion_1+
+      com_1+
+      com_2+
+      ges_des_1+
+      ges_des_2+
+      comp_ben_1+
+      comp_ben_2+
+      superv_1+
+      superv_2+
+      superv_3+
+      enps_lugar_trab+
+      enps_prod_serv+
+        suma_parcial, 
+           method= c(
+      sexo=3,
+      b_ger=3,
+      comp_sos_1=3,
+      comp_sos_2=3,
+      comp_sos_3=3,
+      comp_sos_4=3,
+      comp_sos_5=3,
+      comp_sos_6=3,
+      comp_sos_7=3,
+      comp_sos_8=3,
+      comp_sos_9=3,
+      dllo_prof_1=3,
+      dllo_prof_2=3,
+      dllo_prof_3=3,
+      lid_1=3,
+      lid_2=3,
+      ent_trab_1=3,
+      ent_trab_2=3,
+      covid_1=3,
+      covid_2=3,
+      covid_3=3,
+      covid_4=3,
+      intencion_1=3,
+      com_1=3,
+      com_2=3,
+      ges_des_1=3,
+      ges_des_2=3,
+      comp_ben_1=3,
+      comp_ben_2=3,
+      superv_1=3,
+      superv_2=3,
+      superv_3=3,
+      enps_lugar_trab=2,
+      enps_prod_serv=2,
+      suma_parcial=2
+),
+    data = encuesta_rec,
+    include.miss = T, #baja el número de casos
+    p.corrected=T,
+    chisq.test.perm=T,
+    chisq.test.seed=1234,
+    var.equal=T)
+  )
+
+restab2_sex <- createTable(table2_sex, show.p.overall = T)
+
+pvals2 <- getResults(table2_sex)
+#p.adjust(pvals, method = "BH")
+export2md(restab2_sex, size=10, first.strip=T, hide.no="no", position="center",
+          format="html",caption= "Tabla 3. Descriptivo Aplicación Total según Sexo",
+          col.names=c("Variables", "Hombres", "Mujeres", "Valor-p")
+         )%>%
+  kableExtra::add_footnote(c("Note. N= Número de participantes con al menos una respuesta válida en las variables seleccionadas; Variables continuas se presentan como medianas y percentiles 25 y 75;", 
+                             "Variables categóricas son presentadas como el recuento y el porcentaje"), notation = "none")%>%
+  kableExtra::kable_classic() %>% 
+  kableExtra::scroll_box(width = "100%", height = "800px")
+```
+
+<br>
+
+### Datos Generales
+
+<br>
+
+```{r fig_sex, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Figura. Sexo", error=T, out.width='100%', eval=T}
+library(plotly)
+
+sexo_df<-
+encuesta_rec %>%
+     dplyr::group_by(sexo)%>%
+       dplyr::summarise(n=n(),percent=round(n/sum(n),2))%>% 
+     dplyr::ungroup()%>%
+    dplyr::mutate(valid_percent=scales::percent(n/(sum(n)-sum(n[is.na(sexo)])),2),
+                  valid_percent=ifelse(is.na(sexo),NA,valid_percent),
+                  percent=scales::percent(n/(sum(n)),2))%>%   
+#      dplyr::mutate(label=paste0("",p7_exp_c19_trab_cont,"<br>",n,"(",percent,")<br>Válido= ",valid_percent)) %>% 
+  dplyr::mutate(label=paste0(sexo,"\n(",valid_percent,")")) #%>%   
+      #dplyr::filter(!is.na(sexo))
+sex_plotly<-
+sexo_df %>% 
+plot_ly(labels = ~sexo, values = ~n, type = 'pie',hole = 0.6, textposition = 'outside',textinfo = 'text', sort = FALSE,
+        automargin = TRUE,
+        text = ~label,
+        direction = "clockwise",
+        textfont = list(color = "black", size = 14),
+        marker = list(colors = c(gray.colors(length(unique(encuesta_rec$sexo))-1), "#FF5252"))) %>%
+  layout(yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = T)) %>% 
+  layout(xaxis = list(ticktext = c("Ninguno", "1 a 10", "11 a 30", "31 a 100", "No Responde")))%>% 
+  layout(showlegend = FALSE) %>% 
+  layout(margin = m)
+
+htmltools::tagList(list(sex_plotly))
+
+no_mostrar=0
+if(no_mostrar==1){
+p_10 %>% htmlwidgets::onRender(
+        "function(el, x) {
+  var gd = document.getElementById(el.id); 
+  Plotly.downloadImage(gd, {format: 'svg', scale: 4, width: 600, height: 800,filename: 'p10'});
+  }"
+    )
+}
+```
+
+```{r fig_gerencia, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Figura. Gerencia", error=T, out.width="100%", eval=T, fig.height=10, fig.width=10}
+
+b_ger_df<-
+encuesta_rec %>%
+     dplyr::group_by(b_ger)%>%
+       dplyr::summarise(n=n(),percent=round(n/sum(n),2))%>% 
+     dplyr::ungroup()%>%
+    dplyr::mutate(valid_percent=scales::percent(n/(sum(n)-sum(n[is.na(b_ger)])),2),
+                  valid_percent=ifelse(is.na(b_ger),NA,valid_percent),
+                  percent=scales::percent(n/(sum(n)),2))%>%   
+#      dplyr::mutate(label=paste0("",p7_exp_c19_trab_cont,"<br>",n,"(",percent,")<br>Válido= ",valid_percent)) %>% 
+  dplyr::mutate(label=paste0(b_ger,"\n(",valid_percent,")")) #%>%   
+
+b_ger_plotly<-
+b_ger_df %>% 
+plot_ly(labels = ~b_ger, values = ~n, type = 'pie',hole = 0.3, textposition = 'outside',textinfo = 'text', sort = FALSE,
+        automargin = TRUE,
+        text = ~label,
+        direction = "clockwise",
+        textfont = list(color = "black", size = 14),
+        marker = list(colors = c(gray.colors(length(unique(encuesta_rec$b_ger))-1), "#FF5252"))) %>%
+  layout(yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = T)) %>% 
+  layout(xaxis = list(ticktext = c("Ninguno", "1 a 10", "11 a 30", "31 a 100", "No Responde")))%>% 
+  layout(showlegend = FALSE)%>% 
+  layout(margin = m)
+
+htmltools::tagList(list(b_ger_plotly))
+
+no_mostrar=0
+if(no_mostrar==1){
+p_10 %>% htmlwidgets::onRender(
+        "function(el, x) {
+  var gd = document.getElementById(el.id); 
+  Plotly.downloadImage(gd, {format: 'svg', scale: 4, width: 600, height: 800,filename: 'p10'});
+  }"
+    )
+}
+```
+
+<br>
+
+### Componentes
+
+<br>
+
+Se revirtieron los valores de los ítems correspondientes a insatisfacción (3 y 5), pero sólo para la suma de los puntajes.
+
+<br>
+
+```{r fig_comp_sos, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T}
+invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
+#`
+comp_sos_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(starts_with("comp_sos_")),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(starts_with("comp_sos_")) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Muy en desacuerdo(0)",
+                                          val==1~"En desacuerdo(1)",
+                                          val==2~"Ni acuerdo ni desacuerdo(2)",
+                                          val==3~"De acuerdo(3)",
+                                          val==4~"Muy de acuerdo(4)",
+                                          is.na(val)~"No Responde"
+                                            )) %>% 
+  dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key)))) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(comp_sos_bars)){
+  comp_sos_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(comp_sos_bars$label[i], width =40), "<br>"), collapse='')
+}  
+comp_sos_bars$label_text<-paste0("Código: ",comp_sos_bars$key,"<br>Valor:",comp_sos_bars$val_text,"<br>Porcentaje:",comp_sos_bars$perc,"<br>Válido:",comp_sos_bars$valid_perc,"<br>Etiqueta:",comp_sos_bars$label)
+
+comp_sos_bars_plot<-  
+    ggplot(comp_sos_bars,aes(x=items_num,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$comp_sos_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))
+
+ggplotly(comp_sos_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+
+```{r fig_comp_sos_b, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T, fig.height=8}
+invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
+library(ggrepel)
+comp_sos_bars %>% 
+ggplot(aes(x=items_num,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 10, face = "bold"),
+        axis.text.x= element_text(size = 12),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold")+ #+
+  scale_x_discrete(limits =paste0(1:9))#+
+  #scale_x_discrete(labels =c("Trabajo contribuye\nen la empresa","Formación y\npreparación","Oportunidades\nde formación"))
+```
+
+<br>
+
+Se verá el Desarrollo Profesional
+
+
+```{r fig_dllo_prof_1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Desarrollo Profesional (1)", fig.align="center",error=T}
+invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
+dllo_prof_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(paste0("dllo_prof_",1:3)),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(paste0("dllo_prof_",1:3)) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Nunca(0)",
+                                          val==1~"A veces(1)",
+                                          val==2~"A menudo(2)",
+                                          val==3~"Siempre(3)",
+                                          is.na(val)~"No Responde")) %>% 
+  dplyr::mutate(items_num=readr::parse_number(key, "\\d+")) %>% 
+  #dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key))))
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(dllo_prof_bars)){
+  dllo_prof_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(dllo_prof_bars$label[i], width =40), "<br>"), collapse='')
+}  
+dllo_prof_bars$label_text<-paste0("Código: ",dllo_prof_bars$key,"<br>Valor:",dllo_prof_bars$val_text,"<br>Porcentaje:",dllo_prof_bars$perc,"<br>Válido:",dllo_prof_bars$valid_perc,"<br>Etiqueta:",dllo_prof_bars$label)
+
+dllo_prof_bars_plot<-  
+    ggplot(dllo_prof_bars,aes(x=items_num,y=sum,fill=val, label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  scale_x_continuous(breaks=c(1:12))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$dllo_prof_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))
+
+
+dllo_prof_bars_plot<-  
+    ggplot(dllo_prof_bars,aes(x=items_num,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$dllo_prof_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))
+
+ggplotly(dllo_prof_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+##, na.value = "gray80", palette="Reds"
+```
+
+```{r dllo_prof_2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Desarrollo Profesional (2)", fig.align="center",error=T, fig.height=8}
+invisible("ALERTA: Que se modifique")
+
+library(ggrepel)
+dllo_prof_bars %>% 
+ggplot(aes(x=as.character(key),y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 13, face = "bold"),
+        axis.text.x= element_text(size = 13),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold") +
+  #scale_x_discrete(limits =paste0("Desarrollo\nProfesional\n",1:3))
+  scale_x_discrete(labels =c("Permanecer\nen la empresa","Formación y\npreparación","Oportunidades\nde formación"))
+```
+
+<br>
+
+```{r fig_lid_ent_trab, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo", fig.align="center",error=T}
+lid_ent_trab_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(starts_with("lid"),starts_with("ent_trab")),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(starts_with("lid"),starts_with("ent_trab")) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Nunca(0)",
+                                          val==1~"Sólo unas pocas veces(1)",
+                                          val==2~"Algunas veces(2)",
+                                          val==3~"La mayoría de las veces(3)",
+                                          val==4~"Siempre(4)",
+                                          is.na(val)~"No Responde"
+                                            )) %>% 
+  dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key)))) %>% 
+  #dplyr::mutate(items_num=readr::parse_number(key, "\\d+")) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(lid_ent_trab_bars)){
+  lid_ent_trab_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(lid_ent_trab_bars$label[i], width =40), "<br>"), collapse='')
+}  
+lid_ent_trab_bars$label_text<-paste0("Código: ",lid_ent_trab_bars$key,"<br>Valor:",lid_ent_trab_bars$val_text,"<br>Porcentaje:",lid_ent_trab_bars$perc,"<br>Válido:",lid_ent_trab_bars$valid_perc,"<br>Etiqueta:",lid_ent_trab_bars$label)
+
+lid_ent_trab_bars_plot<-  
+  #   ggplot(lid_ent_trab_bars,aes(x=items_num,y=sum,fill=val, label= label_text))+
+  #   geom_col() +
+  # sjPlot::theme_sjplot2()+
+  # labs(x="Ítems",y="Número de Respuestas\n")+
+  # theme(strip.background  = element_blank(),
+  #       strip.text = element_text(face="bold", size=7))+
+  # scale_x_continuous(breaks=c(1:6))+
+  # theme(strip.text.x = element_text(size = 8, face = "bold"),
+  #       axis.text.y = element_blank(),
+  #       plot.caption=element_text(hjust = 0))
+   ggplot(lid_ent_trab_bars,aes(x=key,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  #scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$lid_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))+
+  scale_x_discrete(labels =c("Preocupación\ncomo empleado","Comodidad con\nvalores","Optimismo\nfuturo empresa","Confianza decisiones\n directivo"))
+
+ggplotly(lid_ent_trab_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+```{r fig_lid_ent_trab_2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo (2)", fig.align="center",error=T, fig.height=8}
+
+library(ggrepel)
+lid_ent_trab_bars %>% 
+ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 13, face = "bold"),
+        axis.text.x= element_text(size = 13),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold") +
+  scale_x_discrete(labels =c("Preocupación\ncomo empleado","Comodidad con\nvalores","Optimismo\nfuturo empresa","Confianza decisiones\n directivo"))
+```
+
+
+```{r fig_covid_19, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre COVID-19", fig.align="center",error=T}
+covid_19_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(paste0("covid_",1:4)),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(paste0("covid_",1:4)) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Nunca(0)",
+                                          val==1~"Sólo unas pocas veces(1)",
+                                          val==2~"Algunas veces(2)",
+                                          val==3~"La mayoría de las veces(3)",
+                                          val==4~"Siempre(4)",
+                                          is.na(val)~"No Responde"
+                                            )) %>% 
+  dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key)))) %>% 
+  #dplyr::mutate(items_num=readr::parse_number(key, "\\d+")) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(covid_19_bars)){
+  covid_19_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(covid_19_bars$label[i], width =40), "<br>"), collapse='')
+}  
+covid_19_bars$label_text<-paste0("Código: ",covid_19_bars$key,"<br>Valor:",covid_19_bars$val_text,"<br>Porcentaje:",covid_19_bars$perc,"<br>Válido:",covid_19_bars$valid_perc,"<br>Etiqueta:",covid_19_bars$label)
+
+covid_19_bars_plot<-  
+  #   ggplot(lid_ent_trab_bars,aes(x=items_num,y=sum,fill=val, label= label_text))+
+  #   geom_col() +
+  # sjPlot::theme_sjplot2()+
+  # labs(x="Ítems",y="Número de Respuestas\n")+
+  # theme(strip.background  = element_blank(),
+  #       strip.text = element_text(face="bold", size=7))+
+  # scale_x_continuous(breaks=c(1:6))+
+  # theme(strip.text.x = element_text(size = 8, face = "bold"),
+  #       axis.text.y = element_blank(),
+  #       plot.caption=element_text(hjust = 0))
+   ggplot(covid_19_bars,aes(x=key,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  #scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$covid_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))+
+  scale_x_discrete(labels =c("Confianza\nrespuesta líderes","Compañía\nprotege","Confianza\nprotección líderes","Información\n trabajadores"))
+
+ggplotly(covid_19_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+```{r covid_19_2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre COVID-19 (2)", fig.align="center",error=T, fig.height=8}
+
+library(ggrepel)
+covid_19_bars %>% 
+ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 13, face = "bold"),
+        axis.text.x= element_text(size = 13),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold") +
+  scale_x_discrete(labels =c("Confianza\nrespuesta líderes","Compañía\nprotege","Confianza\nprotección líderes","Información\n trabajadores"))
+```
+
+
+```{r otros1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Otras variables", fig.align="center",error=T}
+#"com_1"           "com_2"           "ges_des_1"       "ges_des_2"      
+#[37] "comp_ben_1"      "comp_ben_2"     
+resto_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(c("com_1", "com_2", "ges_des_1", "ges_des_2", "comp_ben_1", "comp_ben_2")),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(c("com_1", "com_2", "ges_des_1", "ges_des_2", "comp_ben_1", "comp_ben_2")) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Nunca(0)",
+                                          val==1~"Sólo unas pocas veces(1)",
+                                          val==2~"Algunas veces(2)",
+                                          val==3~"La mayoría de las veces(3)",
+                                          val==4~"Siempre(4)",
+                                          is.na(val)~"No Responde"
+                                            )) %>% 
+  dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key)))) %>% 
+  #dplyr::mutate(items_num=readr::parse_number(key, "\\d+")) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(resto_bars)){
+  resto_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(resto_bars$label[i], width =40), "<br>"), collapse='')
+}  
+resto_bars$label_text<-paste0("Código: ",resto_bars$key,"<br>Valor:",resto_bars$val_text,"<br>Porcentaje:",resto_bars$perc,"<br>Válido:",resto_bars$valid_perc,"<br>Etiqueta:",resto_bars$label)
+
+resto_bars_plot<-  
+  #   ggplot(lid_ent_trab_bars,aes(x=items_num,y=sum,fill=val, label= label_text))+
+  #   geom_col() +
+  # sjPlot::theme_sjplot2()+
+  # labs(x="Ítems",y="Número de Respuestas\n")+
+  # theme(strip.background  = element_blank(),
+  #       strip.text = element_text(face="bold", size=7))+
+  # scale_x_continuous(breaks=c(1:6))+
+  # theme(strip.text.x = element_text(size = 8, face = "bold"),
+  #       axis.text.y = element_blank(),
+  #       plot.caption=element_text(hjust = 0))
+   ggplot(resto_bars,aes(x=key,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  #scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$comp_ben_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))+
+  scale_x_discrete(labels =c("Esfuerzo\nconocer\nempleados","Información\npara hacer\ntrabajo","Programa\nBeneficios\n responde\nnecesidades", "Remuneraciones\ncompetitivas","Recibe\nfeedback\nregular","Reconoce\ndesempeño\nexcelente"))
+
+ggplotly(resto_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+```{r otros_2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Otras variables (2)", fig.align="center",error=T, fig.height=8}
+
+library(ggrepel)
+resto_bars %>% 
+ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 13, face = "bold"),
+        axis.text.x= element_text(size = 13),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold")+
+  scale_x_discrete(labels =c("Esfuerzo conocer\nempleados","Información para\n hacer\ntrabajo","Programa\nBeneficios\n responde\nnecesidades", "Remuneraciones\ncompetitivas","Recibe\nfeedback\nregular","Reconoce\ndesempeño\nexcelente"))
+```
+
+```{r fig_superv1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Supervisor/a", fig.align="center",error=T}
+superv_bars<-
+encuesta_rec %>% 
+  dplyr::mutate_at(.vars=vars(paste0("superv_",1:3)),.funs = ~as.numeric(.)-1) %>% 
+  dplyr::select(paste0("superv_",1:3)) %>% 
+  tidyr::gather(key = "key", value = "val") %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::mutate(sum=n()) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::left_join(var_lbls_no_char,by=c("key"="nam")) %>% 
+  dplyr::rename("label"="var_lab") %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(label= max(label,na.rm=T)) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::group_by(key,val) %>% 
+  dplyr::slice(1) %>% 
+  dplyr::ungroup() %>% 
+  dplyr::mutate(val_text=dplyr::case_when(val==0~"Nunca(0)",
+                                          val==1~"Sólo unas pocas veces(1)",
+                                          val==2~"Algunas veces(2)",
+                                          val==3~"La mayoría de las veces(3)",
+                                          val==4~"Siempre(4)",
+                                          is.na(val)~"No Responde"
+                                            )) %>% 
+  dplyr::mutate(items_num=as.numeric(substr(key, nchar(key), nchar(key)))) %>% 
+  #dplyr::mutate(items_num=readr::parse_number(key, "\\d+")) %>% 
+  dplyr::group_by(key) %>% 
+  dplyr::mutate(perc=scales::percent(sum/sum(sum)), 
+                valid_perc=scales::percent(sum/sum(sum[!is.na(val)])),
+                valid_perc=ifelse(is.na(val),NA,valid_perc)) %>% 
+  dplyr::ungroup()%>% 
+  dplyr::filter(!is.na(val))%>% 
+  dplyr::mutate(valid_perc_num=readr::parse_number(valid_perc, "\\d+"))
+  
+for (i in 1:nrow(superv_bars)){
+  superv_bars$label[i]<-stringi::stri_paste(paste(stringi::stri_wrap(superv_bars$label[i], width =40), "<br>"), collapse='')
+}  
+superv_bars$label_text<-paste0("Código: ",superv_bars$key,"<br>Valor:",superv_bars$val_text,"<br>Porcentaje:",superv_bars$perc,"<br>Válido:",superv_bars$valid_perc,"<br>Etiqueta:",superv_bars$label)
+
+superv_bars_plot<-  
+  #   ggplot(lid_ent_trab_bars,aes(x=items_num,y=sum,fill=val, label= label_text))+
+  #   geom_col() +
+  # sjPlot::theme_sjplot2()+
+  # labs(x="Ítems",y="Número de Respuestas\n")+
+  # theme(strip.background  = element_blank(),
+  #       strip.text = element_text(face="bold", size=7))+
+  # scale_x_continuous(breaks=c(1:6))+
+  # theme(strip.text.x = element_text(size = 8, face = "bold"),
+  #       axis.text.y = element_blank(),
+  #       plot.caption=element_text(hjust = 0))
+   ggplot(superv_bars,aes(x=key,y=sum,fill=factor(val), label= label_text))+
+    geom_col() +
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=7))+
+  #scale_x_continuous(breaks=c(1:9))+
+  scale_fill_brewer(name= "Values",labels=c(paste0(1:length(levels(encuesta_rec$superv_1))),"NR"), na.value = "gray80", palette="Reds")+
+  theme(strip.text.x = element_text(size = 8, face = "bold"),
+        axis.text.y = element_blank(),
+        plot.caption=element_text(hjust = 0))+
+  scale_x_discrete(labels =c("Fomenta trabajo\nen equipo","Reconoce buen\n trabajo","Fomenta\nel desarrollo"))
+
+ggplotly(superv_bars_plot, tooltip = c("label_text"))%>%
+  layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
+```
+
+```{r superv_2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Supervisor/a (2)", fig.align="center",error=T, fig.height=8}
+
+library(ggrepel)
+superv_bars %>% 
+ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
+    geom_col() +
+    scale_fill_grey(name= "Respuestas", start = 0.2, end = 0.8, na.value = "#FF5252")+#
+  sjPlot::theme_sjplot2()+
+  labs(x="Ítems",y="Número de Respuestas\n")+
+      ylim(0,1.1)+
+  #facet_wrap(~items, nrow = 3)+
+  theme(strip.background  = element_blank(),
+        strip.text = element_text(face="bold", size=6))+
+  theme(strip.text.x = element_text(size = 13, face = "bold"),
+        axis.text.x= element_text(size = 13),
+        axis.title.y= element_blank(),
+        axis.title.x= element_blank(),
+        axis.text.y = element_blank(),
+        legend.title = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        plot.caption=element_text(hjust = 0),
+        legend.position="bottom")+
+  geom_label_repel(#position = position_dodge(width = .5),    # move to center of bars
+              #vjust = 0,    # nudge above top of bar
+            position = position_stack(vjust = 0.5),
+              size = 6,
+            direction = "y",
+            force=1,
+            seed=123,
+            colour = "white", fontface = "bold") +
+  scale_x_discrete(labels =c("Fomenta trabajo\nen equipo","Reconoce buen\n trabajo","Fomenta\nel desarrollo"))
+```
+
+<br>
+
+---------------------------------------------------------------------------------
+
+
+# Compilación
+
+## Descarga para exportación
+
+```{r save_export, echo=T, cache= T, paged.print=TRUE, warning=F, error=T}
+
+#attr(uss_rec$surv,"label")<- "Supervivencia de Respuestas"
+
+var_labels_df<-data.frame()
+for (i in 1:length(encuesta_rec)){
+  x<-names(encuesta_rec)[i]
+var_labels_df<-rbind.data.frame(var_labels_df, cbind(x, attr(encuesta_rec[[x]],"label")))
+}
+
+codebook::var_label(encuesta_rec) <-
+var_labels_df%>% 
+  codebook::dict_to_list()
+
+#rio::export(encuesta_rec, file= paste0(getwd(),"/_bd_encuesta_rec_ins.dta"))
+
+write_csv2(encuesta_rec,
+  paste0(getwd(),"/_bd_encuesta_rec_ins.csv"),
+           na="")
+
+save.image("__encuesta_rec_exp_post_crash.RData")
+```
+
+<div style="border: 1px solid #ddd; padding: 5px; overflow-y: scroll; height:600px; overflow-x: scroll; width:100%">
+```{r tab_exp, message=FALSE, warning=FALSE, eval=T}
+rpivotTable(data = encuesta_rec %>% dplyr::select(-(cor_ele:funcion)), rows="b_ger",cols = c("sexo","intencion_1"), vals = "Cuenta", aggregatorName = "Cuenta",rendererName = "Table", locale="es")
+```
+</div>
+
+<br>
+
+<br>
+
+<br>
+
+```{r expandr para la gente, message=FALSE, warning=FALSE, eval=F}
+rm(list=ls());gc()
+
+load("__encuesta_rec_exp_post_crash.RData")
+
+ExPanDaR::ExPanD(df= encuesta_rec %>% dplyr::select(-(response_id:custom_value)) %>%  dplyr::select(-correo),title = "Datos Encuesta Empresa Seguridad")
+#options(rsconnect.http.trace = TRUE)
+#options(rsconnect.http.verbose = TRUE)
+#options(rsconnect.launch.browser = FALSE)
+#getOption("rsconnect.max.bundle.size")
+options(shiny.error = browser)
+
+## Including Plots
+#plot(pressure)
+```
+
+## Información de la Sesión
+
+```{r session_info, echo=T, paged.print=TRUE}
+Sys.getenv("R_LIBS_USER")
+rstudioapi::getSourceEditorContext()
+
+
+cbind.data.frame(label=data.frame(attr(unlist(sessionInfo()$R.version),"names")),data.table::data.table(unlist(sessionInfo()$R.version))) %>% 
+  knitr::kable(format = "html", format.args = list(decimal.mark = ".", big.mark = ","),
+               caption = paste0("Propiedades del documento"),
+               col.names = c("Categoría","Valor"),
+               align =c('l',rep('c', 101)),
+               escape=T)%>%
+    kableExtra::kable_classic(bootstrap_options = c("striped", "hover"),font_size = 12)
+
+sessionInfo()$locale
+sessionInfo()$running
+
+sesion_info <- devtools::session_info()
+dplyr::select(
+  tibble::as_tibble(sesion_info$packages),
+  c(package, loadedversion, source)
+) %>% 
+  DT::datatable(filter = 'top', colnames = c('Row number' =1,'Variable' = 2, 'Percentage'= 3),
+              caption = htmltools::tags$caption(
+        style = 'caption-side: top; text-align: left;',
+        '', htmltools::em('Paquetes estadísticos utilizados')),
+      options=list(
+initComplete = htmlwidgets::JS(
+      "function(settings, json) {",
+      "$(this.api().tables().body()).css({'font-size': '80%'});",
+      "}")))
+unlink("*_cache", recursive = T, force = T, expand = TRUE)
+```
+
