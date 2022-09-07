@@ -8,9 +8,24 @@ output_dir: "docs"
 source_url: true
 author:
   - name: González-Santa Cruz, A. 
-    affiliation: CISS, Universidad Mayor, Chile. Metodologías Cuantitativas de Investigación, Carrera de Data Science, Universidad Mayor, Chile
+    affiliation: |
+      CISS, Universidad Mayor, Chile. Metodologías Cuantitativas de Investigación, Carrera de Data Science, Universidad Mayor, Chile; 
+      Estudiante Doctorado en Salud Pública, Universidad de Chile
     orcid_id: 0000-0002-5166-9121
-output: distill::distill_article
+output:
+  fidelius::html_password_protected:
+    style:
+      button_text: "Ingresar clave"
+    password: "a1b2c3"
+    preview: false
+    hint: "se aclarará en clases"
+    bundle: true
+    output_format: 
+      distill::distill_article:
+        code_folding: hide  
+        toc: true # table of content true
+        toc_depth: 5  # upto three depths of headings (specified by #, ## and ###)
+        toc_float: true
 ---
 
 ```{r setup, include=FALSE}

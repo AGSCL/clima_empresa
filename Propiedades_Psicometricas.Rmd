@@ -1408,6 +1408,36 @@ data.table(t(round(semTools::reliability(tot_4f_inicial, c("alpha.ord","omega","
 
 Los resultados anteriores nos indican que la prueba muestra valores consistentes como un único constructo, iendo difícil distinguir entre ellos. De todas maneras, cada una de las dimensiones identificadas muestra una adecuada confiabilidad interna, lo que aporta evidencia de valdiez convergente aunque no de validez discriminante (a partir de la tabla previa a la indicada en el párrafo).
 
+
+<br>
+
+# EGA
+
+```{r paso_ega_1,eval=T, echo=T, paged.print=TRUE, eval=T, include=T, error=T}
+library(devtools)
+#devtools::install_github('hfgolino/EGAnet')
+library(EGAnet)
+#lid_des_eam naq_eam
+ega.HSQ <- EGA(
+               data.matrix(meas_model),
+               uni.method = "LE",
+               corr = "cor_auto",
+               model = "glasso",
+               algorithm = "walktrap",
+               plot.EGA = TRUE,
+               plot.type = "qgraph"
+               )
+ega.HSQ
+
+boot_HSQ <- bootEGA(
+                    data.matrix(meas_model),
+                    iter= 1000, 
+                    type = "resampling",
+                    )
+
+ic.HSQ <- itemStability(boot_HSQ)
+```
+
 ---
 
 <div id="refs"></div>

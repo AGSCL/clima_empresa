@@ -7,3 +7,8 @@
 *.csv
 *.xlsx
 *.RData
+*.desktop.ini
+desktop.ini
+secret_key.txt
+secret_key2.txt
+INFO.XLSX

@@ -1,5 +1,6 @@
 ---
 title: "Explorar Datos Consolidados"
+date: "`r withr::with_locale(new = c('LC_TIME' = 'C'), code =format(Sys.time(),'%B %d, %Y'))`"
 output:
   distill::distill_article:
     code_folding: true
@@ -32,66 +33,200 @@ script src = "https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"
       $('.zoomDiv').css({opacity: '0', width: '0%'}); 
     });
   });
+  
+```
+
+```{css hideOutput-lib-src, echo = FALSE}
+<script src="hideOutput.js"></script> 
+```
+
+```{js hideOutput, echo = FALSE}
+$(document).ready(function() {    
+	$chunks = $('.fold');    
+	$chunks.each(function () {      // add button to source code chunks     
+	if ( $(this).hasClass('s') ) {       
+		$('pre.r', this).prepend("<div class=\"showopt\">Show Source</div><br style=\"line-height:22px;\"/>");
+       		$('pre.r', this).children('code').attr('class', 'folded');     
+       		}      // add button to output chunks     
+		if ( $(this).hasClass('o') ) {       
+			$('pre:not(.r)', this).has('code').prepend("<div class=\"showopt\">Show Output</div><br style=\"line-height:22px;\"/>");       
+			$('pre:not(.r)', this).children('code:not(r)').addClass('folded');        // add button to plots       
+			$(this).find('img').wrap('<pre class=\"plot\"></pre>');       
+			$('pre.plot', this).prepend("<div class=\"showopt\">Show Plot</div><br style=\"line-height:22px;\"/>");       
+			$('pre.plot', this).children('img').addClass('folded');      
+			}   
+});    // hide all chunks when document is loaded   
+	$('.folded').css('display', 'none')    // function to toggle the visibility   
+	$('.showopt').click(function() {     
+			var label = $(this).html();     
+			if (label.indexOf("Show") >= 0) {       
+				$(this).html(label.replace("Show", "Hide"));     
+			} else {
+			  $(this).html(label.replace("Hide", "Show"));     
+			}     
+	$(this).siblings('code, img').slideToggle('fast', 'swing');   
+	}); 
+}); 
+
 ```
 
 ```{=html}
 <style type="text/css">
-.tablelines table, .tablelines td, .tablelines th {
-  border: 1px solid black;
+.showopt {   
+  background-color: #004c93;   color: #FFFFFF;    width: 100px;   height: 20px;   text-align: center;   vertical-align: middle !important;   float: right;   font-family: sans-serif;   border-radius: 8px; 
   }
+
+.showopt:hover {     
+        background-color: #dfe4f2;
+        color: #004c93; 
+        }  
+pre.plot {   
+        background-color: white !important; 
+        } 
+.tablelines table, .tablelines td, .tablelines th {
+        border: 1px solid black;
+        }
+
 .centrado {
-  text-align: center;
+    text-align: center;
 }
+
 .table.center {
-  margin-left:auto; 
-  margin-right:auto;
+    margin-left:auto; 
+    margin-right:auto;
+  }
+
+/* https://vivekjaiskumar.medium.com/css-is-and-not-selector-17c942ec83f :is()*/
+
+/* Applies to outputs that are not code other than R*/
+
+pre {
+  overflow-x: auto !important;
 }
-.table_wrapper{
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
+pre code {
+  word-wrap: normal !important;
+  white-space: pre !important;
 }
-code.r{
-  font-size: 8px;
+/*
+pre:not(.sourceCode) { 
+  white-space: nowrap !important;
 }
+*/
+.sourceCode { /* Important gives precedence  */
+  font-size: 10px !important;
+  line-height: 50% !important;
+}
+
 body{ /* Normal  */
-    text-align: justify;
-}
+      text-align: justify;
+  }
+
 .superbigimage{
-  overflow-y:scroll;
-  white-space: nowrap;
+    overflow-y:scroll;
+    height:350px;
+    white-space: nowrap;
+    overflow-x: auto; 
+    width:100%;
 }
 .superbigimage img{
-  overflow-y: scroll;
-  overflow-x: hidden;
+    overflow-y: scroll;
+    overflow-x: hidden;
 }
-p.comment {
-  background-color: #FF7F79;
-    padding: 10px;
-  border: 1px solid black;
-  margin-left: 25px;
-  border-radius: 5px;
-  font-style: italic;
+
+.message { color:#446C6E; font-family: monospace;font-size: 10px; line-height: 110%; font-weight: bold;}
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 5px; text-align: justify;}
+div.red { background-color:#e6bab1; border-radius: 5px; padding: 5px; text-align: justify;}
+
+.pandoc-table { /* Should add !important; but it seems no necessary  */
+  margin-left:auto; /* To center */
+  margin-right:auto;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 11px;
+  overflow-y: auto;
+  max-height:450px !important;
+  white-space: nowrap;
+  overflow-x: auto; 
+  width:450px;
 }
-</style>
-```
-```{=html}
-<style>
-  p.comment {
-    background-color: #ff9a9a;
-      padding: 10px;
-    border: 1px solid red;
-    margin-left: 25px;
-    border-radius: 5px;
-    font-style: italic;
-  }
+
+.pandoc-table th {/* header */
+text-align: center !important;
+font-size: 10px;
+padding: 0px;
+}
+
+.pandoc-table td {
+text-align: left !important;
+font-size: 9px;
+padding: 0px;
+}
+
+.pandoc-table caption {
+    text-align: left !important;
+    font-size: 11px !important;
+}
+
+.controlly{
+    overflow-y:scroll;
+    height:350px;
+    overflow-x: scroll; 
+}
 
 </style>
 ```
-```{r setup0, include=FALSE}
+```{=html}
+<!-- We gotta do each function to hide code and outputs per section, by every ID, we gotta create a different function -->
+<script>
+function myFunction1() {
+    var x = document.getElementById("myDIV");
+    if (x.style.display === "none") {
+        x.style.display = "block";
+    } else {
+        x.style.display = "none";
+    }
+}
+</script>
+
+<script>
+function myFunction2() {
+    var x = document.getElementById("myDIV2");
+    if (x.style.display === "none") {
+        x.style.display = "block";
+    } else {
+        x.style.display = "none";
+    }
+}
+</script>
+```
+```{r setup00, include=T}
 rm(list=ls());gc()
-# xaringan::inf_mr()
-unlink('Explorar_Datos_cache', recursive = TRUE)
+unlink('*_cache', recursive = TRUE)
+
+if(nchar(Sys.getenv("SUPERSECRET"))<2){
+  Sys.setenv("SUPERSECRET"=as.character(read.table("secret_key.txt", quote="\"", comment.char="")))
+}
+if(nchar(Sys.getenv("SUPERSECRET"))<2){
+  try(Sys.setenv("SUPERSECRET"=as.character(read.table(paste0(gsub("/gastos","",dirname(rstudioapi::getActiveDocumentContext()$path)),"/secret_key.txt"), quote="\"", comment.char=""))))
+}
+if(nchar(Sys.getenv("SUPERSECRETT"))<2){
+  Sys.setenv("SUPERSECRETT"=as.character(read.table("secret_key2.txt", quote="\"", comment.char="")))
+}
+if(nchar(Sys.getenv("SUPERSECRETT"))<2){
+  try(Sys.setenv("SUPERSECRETT"=as.character(read.table(paste0(gsub("/gastos","",dirname(rstudioapi::getActiveDocumentContext()$path)),"/secret_key2.txt"), quote="\"", comment.char=""))))
+}
+
+path_sec<- paste0("https://docs.google.com/spreadsheets/d/",Sys.getenv("SUPERSECRET"),"/export?format=csv&id=",Sys.getenv("SUPERSECRET"),"&gid=1387050788")
+path_sec2<- paste0("https://docs.google.com/spreadsheets/d/",Sys.getenv("SUPERSECRETT"),"/export?format=csv&id=",Sys.getenv("SUPERSECRETT"),"&gid=1921324430")
+
+memory.limit(size=56000)
+
+path<-dirname(rstudioapi::getSourceEditorContext()$path)
+
+options(knitr.kable.NA = '')
+```
+
+```{r setup0, include=T}
 `%>%` <- magrittr::`%>%`
 if(!require(guaguas)){install.packages("guaguas")}
 if(!require(fuzzyjoin)){install.packages("fuzzyjoin")}
@@ -126,14 +261,29 @@ guaguas %>%
 
 invisible("homologar a un sexo los nombres y luego enmascarar")
 encuesta_pre <- 
- readr::read_delim("https://docs.google.com/spreadsheets/u/0/d/1Jy1xa_iKnxIHfILPCs_sv19nOlcwuVUm/export?format=tsv&id=1Jy1xa_iKnxIHfILPCs_sv19nOlcwuVUm&gid=1636561072", 
-    delim = "\t", escape_double = FALSE, 
+ readr::read_delim(path_sec, 
+    delim = ",", escape_double = FALSE, 
     trim_ws = TRUE, skip = 9) 
+
 encuesta<-  
 encuesta_pre %>%   
-    dplyr::mutate(`Ingresa tu correo electrónico Verisure`=  sub("\\..*", "", `Ingresa tu correo electrónico Verisure`)) %>% 
+    dplyr::rename(any_of(c(`Ingresa tu correo electrónico Verisure`="\"\"Ingresa tu correo electrónico Verisure\"\""))) %>% 
+    #dplyr::rename(`Ingresa tu correo electrónico Verisure` = 5)
    stringdist_join(dplyr::bind_rows(cbind(guagua_rec_f,sexo="F"),cbind(guagua_rec_m,sexo="H")),by=c("Ingresa tu correo electrónico Verisure"="nombre"),max_dist = .85, mode="left",distance_col="distance") %>% 
-    dplyr::mutate(`correos corregidos 04 08`=ifelse(`correos corregidos 04 08`!="", anonymizer::anonymize(`correos corregidos 04 08`, .algo = "sha256", .seed = 2125),NA_character_)) %>% 
+    dplyr::mutate(`correos corregidos 04 08`=ifelse(`correos corregidos 04 08`!="", anonymizer::anonymize(`correos corregidos 04 08`, .algo = "sha256", .seed = 2125),NA_character_))%>% 
+    dplyr::mutate(`Ingresa tu correo electrónico Verisure`=ifelse(`Ingresa tu correo electrónico Verisure`!="", anonymizer::anonymize(`Ingresa tu correo electrónico Verisure`, .algo = "sha256", .seed = 2125),NA_character_))%>% 
+    dplyr::select(-nombre,-distance)
+
+encuesta_pre2 <- 
+ readr::read_delim(path_sec2, 
+    delim = ",", escape_double = FALSE, 
+    trim_ws = TRUE, skip = 3) 
+
+encuesta2<-  
+encuesta_pre2 %>%   
+  dplyr::rename(any_of(c(`Ingresa tu correo electrónico Verisure`="\"\"Ingresa tu correo electrónico Verisure\"\""))) %>%
+  dplyr::rename(any_of(c("Ingresa tu correo electrónico Verisure"="E-mail"))) %>%
+   stringdist_join(dplyr::bind_rows(cbind(guagua_rec_f,sexo="F"),cbind(guagua_rec_m,sexo="H")),by=c("Ingresa tu correo electrónico Verisure"="nombre"),max_dist = .85, mode="left",distance_col="distance") %>% 
     dplyr::mutate(`Ingresa tu correo electrónico Verisure`=ifelse(`Ingresa tu correo electrónico Verisure`!="", anonymizer::anonymize(`Ingresa tu correo electrónico Verisure`, .algo = "sha256", .seed = 2125),NA_character_))%>% 
     dplyr::select(-nombre,-distance)
 
