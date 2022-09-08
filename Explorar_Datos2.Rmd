@@ -159,7 +159,7 @@ padding: 0px;
 .pandoc-table td {
 text-align: left !important;
 font-size: 9px;
-padding: 0px;
+padding: 0.5px !important;
 }
 
 .pandoc-table caption {
@@ -286,7 +286,7 @@ if(isTRUE(getOption('knitr.in.progress'))==T){
 }
 ```
 
-```{r setup, include=T, message=F, warning=F, error=T}
+```{r setup, include=T, message=T, warning=F, error=T}
 #evitar que ocupe curl
 #options(renv.download.override = utils::download.file)
 
@@ -337,7 +337,7 @@ if(!require(pacman)){install.packages("pacman")}
 pacman::p_unlock(lib.loc = .libPaths()) #para no tener problemas reinstalando paquetes
 knitr::opts_chunk$set(
     echo = TRUE,
-    message = FALSE,
+    message = T,
     warning = FALSE
 )
 #dejo los paquetes estadísticos que voy a utilizar
@@ -761,7 +761,7 @@ skimr_encuesta_rec %>%
   dplyr::left_join(var_lbls_no_char, by=c("skim_variable"="nam")) %>% 
   dplyr::select(skim_type,skim_variable,var_lab, everything()) %>% 
   knitr::kable(.,format = "html", digits=2, format.args = list(decimal.mark = ".", big.mark = ","),
-               caption = paste0("Tabla 1a. Resumen de Variables"),#,
+               caption = paste0("Resumen de Variables"),#,
                col.names = c("Tipo","Variable","Etiqueta","Perdidos","% Completos",
                             "Ordenado","Valores únicos","Más frecuentes","Media", "Desv.Est.","Min","Perc. 25", "Mediana", "Perc. 75", "Max"),
 align =c("c","l",rep('c', 101))) %>%
@@ -802,7 +802,7 @@ skimr_encuesta2_rec %>%
   dplyr::left_join(var_lbls_no_char2, by=c("skim_variable"="nam")) %>% 
   dplyr::select(skim_type,skim_variable,var_lab, everything()) %>% 
   knitr::kable(.,format = "html", digits=2, format.args = list(decimal.mark = ".", big.mark = ","),
-               caption = paste0("Tabla 1b. Resumen de Variables"),#,
+               caption = paste0("Resumen de Variables"),#,
                col.names = c("Tipo","Variable","Etiqueta","Perdidos","% Completos",
                              "Fecha (min)", "Fecha (max)", "Fecha (mediana)", "Fecha (únicos)",
                             "Ordenado","Valores únicos","Más frecuentes","Lógica (Promedio)","Lógica (Recuento)","Promedio", "Desv.Est.","Min","Perc. 25", "Mediana", "Perc. 75", "Max"),
@@ -841,13 +841,13 @@ encuesta_rec %>%
                    p975=as.Date(quantile(unclass(as.Date.POSIXct(fecha)), .975, na.rm=T), origin = "1970-01-01"),
             max =  as.Date(max(unclass(as.Date.POSIXct(fecha)), na.rm=T), origin = "1970-01-01")))
 ) %>% 
-knitr::kable(format="markdown",caption= "Tabla 1b. Resumen de fechas")
+knitr::kable(format="markdown",caption= "Resumen de fechas")
 ```
 
 
 <br>
 
-```{r hist-comp-sos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3a1. Histograma de Frecuencias, Puntajes Ítems de Compromiso Sostenible", fig.align="center",error=T}
+```{r hist-comp-sos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Puntajes Ítems de Compromiso Sostenible", fig.align="center",error=T}
 # paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)
 
 p<-
@@ -864,7 +864,7 @@ tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px
 ggiraph(code = {print(p)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
 ```
 
-```{r hist-comp-sos2, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3a2. Histograma de Frecuencias, Puntajes Ítems de Compromiso Sostenible (2022)", fig.align="center",error=T}
+```{r hist-comp-sos2, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Puntajes Ítems de Compromiso Sostenible (2022)", fig.align="center",error=T}
 # paste0("comp_sos_",1:9), paste0("dllo_prof_",1:3), paste0("lid_",1:2), paste0("ent_trab_",1:2),paste0("covid_",1:4), paste0("intencion_",1), paste0("com_",1:2), paste0("ges_des_",1:2), paste0("comp_ben_",1:2), paste0("superv_",1:3)
 
 p2022<-
@@ -881,7 +881,7 @@ tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px
 ggiraph(code = {print(p2022)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
 ```
 
-```{r hist-dllo-prof, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3b. Histograma de Frecuencias, Puntajes Ítems de Desarrollo Profesional", fig.align="center",error=T}
+```{r hist-dllo-prof, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Puntajes Ítems de Desarrollo Profesional", fig.align="center",error=T}
 p2<-
   encuesta_rec %>% 
   dplyr::mutate(across(paste0("dllo_prof_",1:3),~as.numeric(.),.names="num_{col}")) %>% 
@@ -896,7 +896,7 @@ tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px
 ggiraph(code = {print(p2)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
 ```
 
-```{r hist-covid, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3c. Histograma de Frecuencias, Puntajes Ítems de COVID-19", fig.align="center",error=T}
+```{r hist-covid, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Puntajes Ítems de COVID-19", fig.align="center",error=T}
 p3<-
     encuesta_rec %>% 
   dplyr::mutate(across(paste0("covid_",1:4),~as.numeric(.),.names="num_{col}")) %>% 
@@ -912,7 +912,7 @@ ggiraph(code = {print(p3)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .
 ```
 
 
-```{r hist-superv, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 3d. Histograma de Frecuencias, Puntajes Ítems de Supervisor Inmediato", fig.align="center",error=T}
+```{r hist-superv, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Puntajes Ítems de Supervisor Inmediato", fig.align="center",error=T}
 p4<-
     encuesta_rec %>% 
   dplyr::mutate(across(paste0("superv_",1:3),~as.numeric(.),.names="num_{col}")) %>% 
@@ -989,7 +989,7 @@ Vemos un histograma de frecuencia de datos perdidos por usuario.
 
 <br>
 
-```{r hist-perdidos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 4. Histograma de Frecuencias, Valores perdidos en variables de interés", fig.align="center",error=T}
+```{r hist-perdidos, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Valores perdidos en variables de interés", fig.align="center",error=T}
 p4<-ggplot(encuesta_rec_miss,aes(x=suma_parcial), alpha=.7)+
   geom_histogram_interactive(bins=10)+
   #   geom_vline(aes(xintercept=30), color="darkred", linetype="dashed")+
@@ -1011,7 +1011,7 @@ ggiraph(code = {print(p4)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .
 
 <br>
 
-```{r hist-perdidos-2022, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Figura 4. Histograma de Frecuencias, Valores perdidos en variables de interés (2022)", fig.align="center",error=T}
+```{r hist-perdidos-2022, echo=T, cache= T, paged.print=TRUE, warning=F, fig.cap="Histograma de Frecuencias, Valores perdidos en variables de interés (2022)", fig.align="center",error=T}
 p4_2022<-ggplot(encuesta2_rec_miss,aes(x=suma_parcial), alpha=.7)+
   geom_histogram_interactive(bins=10)+
   #   geom_vline(aes(xintercept=30), color="darkred", linetype="dashed")+
@@ -1052,9 +1052,9 @@ tooltip_css <- "background-color:gray;color:white;font-style:italic;padding:10px
 ggiraph(code = {print(p_corr)}, tooltip_extra_css = tooltip_css, tooltip_opacity = .75)
 ```
 
-```{r 2022-corr-felipe3,dpi = 320, message=F, error=T, eval=T, warnings=F, fig.height=5, fig.width=18}
+```{r 2022-corr-felipe3,dpi = 320, message=T, error=T, eval=T, warnings=F, fig.height=5, fig.width=18}
 
-cat("Asociación de compromiso sostenible, días desde el 25-07, estratificado por dirección (1,000 remuestreos)")
+message("Asociación de compromiso sostenible, días desde el 25-07, estratificado por dirección (1,000 remuestreos)")
 ggstatsplot::grouped_ggscatterstats(data = data.frame(encuesta2_rec) %>%                                    dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto")),
                             x = dias_despues,
                             y = compromiso_sostenible_ags,
@@ -1077,8 +1077,8 @@ ggstatsplot::grouped_ggscatterstats(data = data.frame(encuesta2_rec) %>%        
 dev.off()
 ```
 
-```{r 2022-corr-felipe3b,dpi = 320, message=F, error=T, eval=T, warnings=F, fig.height=5, fig.width=20}
-cat("Asociación de compromiso sostenible y Feedback, estratificado por dirección (1,000 remuestreos)")
+```{r 2022-corr-felipe3b,dpi = 320, message=T, error=T, eval=T, warnings=F, fig.height=5, fig.width=20}
+message("Asociación de compromiso sostenible y Feedback, estratificado por dirección (1,000 remuestreos)")
 ggstatsplot::grouped_ggbarstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo"))),
                             x = ges_des_1_rec,
                             y = compromiso_sostenible_ags,
@@ -1100,7 +1100,7 @@ ggstatsplot::grouped_ggbarstats(data = data.frame(encuesta2_rec) %>%  dplyr::mut
                             type = "p" )
 dev.off()
 
-cat("Asociación de compromiso sostenible y Feedback (dicotomizada), estratificado por dirección (1,000 remuestreos)")
+message("Asociación de compromiso sostenible y Feedback (dicotomizada), estratificado por dirección (1,000 remuestreos)")
 ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo"))),
                             x = ges_des_1_rec,
                             y = compromiso_sostenible_ags,
@@ -1121,7 +1121,7 @@ ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr:
                             type = "p" )
 dev.off()
 
-cat("Asociación de compromiso sostenible y Feedback, estratificado por dirección (1,000 remuestreos)")
+message("Asociación de compromiso sostenible y Feedback, estratificado por dirección (1,000 remuestreos)")
 ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo"))),
                             x = ges_des_1,
                             y = compromiso_sostenible_ags,
@@ -1142,7 +1142,7 @@ ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr:
                             type = "p" )
 dev.off()
 
-cat("Asociación de compromiso sostenible y Feedback, estratificado por dirección, descartando a quienes indican 0 recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
+message("Asociación de compromiso sostenible y Feedback, estratificado por dirección, descartando a quienes indican 0 recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
 ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo")))%>% dplyr::filter(enps_lugar_trab>0),
                             x = ges_des_1,
                             y = compromiso_sostenible_ags,
@@ -1163,7 +1163,7 @@ ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr:
                             type = "p" )
 dev.off()
 
-cat("Asociación de compromiso sostenible y Feedback (dicotomizado), estratificado por dirección, descartando a quienes indican 0 recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
+message("Asociación de compromiso sostenible y Feedback (dicotomizado), estratificado por dirección, descartando a quienes indican 0 recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
 ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo")))%>% dplyr::filter(enps_lugar_trab>0),
                             x = ges_des_1_rec,
                             y = compromiso_sostenible_ags,
@@ -1184,7 +1184,7 @@ ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr:
                             type = "p" )
 dev.off()
 
-cat("Asociación de compromiso sostenible y Feedback (dicotomizado), estratificado por dirección, descartando a quienes indican 6 o menos recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
+message("Asociación de compromiso sostenible y Feedback (dicotomizado), estratificado por dirección, descartando a quienes indican 6 o menos recomendando a la empresa como un buen lugar para trabajar (1,000 remuestreos)")
 ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr::mutate(group=dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo")))%>% dplyr::filter(enps_lugar_trab>=7),
                             x = ges_des_1_rec,
                             y = compromiso_sostenible_ags,
@@ -1204,13 +1204,13 @@ ggstatsplot::grouped_ggbetweenstats(data = data.frame(encuesta2_rec) %>%  dplyr:
                             type = "p" )
 dev.off()
 ```
-:::controlly
 
+:::controlly
 ```{r finalfit,dpi = 320, message=F, error=T, eval=T, warnings=F}
 
 encuesta2_rec %>%  dplyr::mutate(group=factor(dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"), levels=c("Resto", "Ventas", "Operaciones")),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo"))) %>%
   dplyr::mutate(ges_des_1_rec= ff_label(ges_des_1_rec,"Feedback superiores")) %>% 
-    finalfit("compromiso_sostenible_ags", c("group", "ges_des_1_rec", "dias_despues", "sexo", "antiguedad")) %>% knitr::kable("markdown")
+    finalfit("compromiso_sostenible_ags", c("group", "ges_des_1_rec", "dias_despues", "sexo", "antiguedad")) %>% data.table::data.table(keep.rownames = F) %>%  knitr::kable("markdown")
 
 encuesta2_rec2<-
 encuesta2_rec %>%  dplyr::mutate(group=factor(dplyr::case_when(a_dir=="Operaciones"~"Operaciones",a_dir=="Ventas"~"Ventas",T~"Resto"), levels=c("Resto", "Ventas", "Operaciones")),  ges_des_1_rec= factor(dplyr::case_when(ges_des_1=="Tiendo a estar de acuerdo"~1, ges_des_1=="De Acuerdo"~1, T~ 0),levels=c(0,1),labels=c("Otros","...de acuerdo/De acuerdo")))
@@ -1218,8 +1218,9 @@ encuesta2_rec %>%  dplyr::mutate(group=factor(dplyr::case_when(a_dir=="Operacion
 ```
 :::
 
-`r finalfit(encuesta2_rec2,"compromiso_sostenible_ags", c("group", "ges_des_1_rec", "dias_despues", "sexo", "antiguedad"), metrics=T)[[2]]`
+`r message(finalfit(encuesta2_rec2,"compromiso_sostenible_ags", c("group", "ges_des_1_rec", "dias_despues", "sexo", "antiguedad"), metrics=T)[[2]])`
 
+<br>
 
 ```{r comparativo-total-2022,dpi = 320, message=F, error=T, eval=T, warnings=F}
 for (i in 1:length(encuesta2_rec)){
@@ -1282,7 +1283,7 @@ restab0_all <- createTable(table0_all, show.p.overall = T)
 pvals0 <- getResults(table0_all)
 #p.adjust(pvals, method = "BH")
 export2md(restab0_all, size=10, first.strip=T, hide.no="no", position="center",
-          format="html",caption= "Tabla 2a. Descriptivo Aplicación Total (2022)",
+          format="html",caption= "Descriptivo Aplicación Total (2022)",
           #col.names=c("Variables", "Todos los casos", "N")
          )%>%
   kableExtra::add_footnote(c("Note. N= Número de participantes con al menos una respuesta válida en las variables seleccionadas; Variables continuas se presentan como medianas y percentiles 25 y 75;", 
@@ -1391,7 +1392,7 @@ restab1_all <- createTable(table1_all, show.p.overall = T)
 pvals1 <- getResults(table1_all)
 #p.adjust(pvals, method = "BH")
 export2md(restab1_all, size=10, first.strip=T, hide.no="no", position="center",
-          format="html",caption= "Tabla 2b. Descriptivo Aplicación Total",
+          format="html",caption= "Descriptivo Aplicación Total",
           col.names=c("Variables", "Todos los casos", "N")
          )%>%
   kableExtra::add_footnote(c("Note. N= Número de participantes con al menos una respuesta válida en las variables seleccionadas; Variables continuas se presentan como medianas y percentiles 25 y 75;", 
@@ -1490,7 +1491,7 @@ restab2_sex <- createTable(table2_sex, show.p.overall = T)
 pvals2 <- getResults(table2_sex)
 #p.adjust(pvals, method = "BH")
 export2md(restab2_sex, size=10, first.strip=T, hide.no="no", position="center",
-          format="html",caption= "Tabla 3. Descriptivo Aplicación Total según Sexo",
+          format="html",caption= "Descriptivo Aplicación Total según Sexo",
           col.names=c("Variables", "Hombres", "Mujeres", "Valor-p")
          )%>%
   kableExtra::add_footnote(c("Note. N= Número de participantes con al menos una respuesta válida en las variables seleccionadas; Variables continuas se presentan como medianas y percentiles 25 y 75;", 
@@ -1505,7 +1506,7 @@ export2md(restab2_sex, size=10, first.strip=T, hide.no="no", position="center",
 
 <br>
 
-```{r fig-sex, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Figura. Sexo", error=T, out.width='100%', eval=T}
+```{r fig-sex, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Sexo", error=T, out.width='100%', eval=T}
 library(plotly)
 
 sexo_df<-
@@ -1545,7 +1546,7 @@ p_10 %>% htmlwidgets::onRender(
 }
 ```
 
-```{r fig-gerencia, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Figura. Gerencia", error=T, out.width="100%", eval=T, fig.height=10, fig.width=10}
+```{r fig-gerencia, dpi = 320, warning=T,message=F,fig.align='center', fig.cap="Gerencia", error=T, out.width="100%", eval=T, fig.height=10, fig.width=10}
 
 b_ger_df<-
 encuesta_rec %>%
@@ -1594,7 +1595,7 @@ Se revirtieron los valores de los ítems correspondientes a insatisfacción (3 y
 
 <br>
 
-```{r fig-comp-sos, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T}
+```{r fig-comp-sos, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T}
 invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
 #`
 comp_sos_bars<-
@@ -1653,7 +1654,7 @@ ggplotly(comp_sos_bars_plot, tooltip = c("label_text"))%>%
 ```
 
 
-```{r fig-comp-sos-b, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T, fig.height=8}
+```{r fig-comp-sos-b, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Compromiso Sostenible", fig.align="center",error=T, fig.height=8}
 invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
 library(ggrepel)
 comp_sos_bars %>% 
@@ -1692,7 +1693,7 @@ ggplot(aes(x=items_num,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
 Se verá el Desarrollo Profesional
 
 
-```{r fig-dllo-prof-1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Desarrollo Profesional (1)", fig.align="center",error=T}
+```{r fig-dllo-prof-1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Desarrollo Profesional (1)", fig.align="center",error=T}
 invisible(c("Compromiso Sostenible", "Desarrollo Profesional", "Liderazgo",	"Entorno de Trabajo", "Covid", "Intención de permanecer en la Compañía",	"Comunicación",	"Gestión del Desempeño",	"Compensación y Beneficios",	"Supervisor Inmediato"))
 dllo_prof_bars<-
 encuesta_rec %>% 
@@ -1763,7 +1764,7 @@ ggplotly(dllo_prof_bars_plot, tooltip = c("label_text"))%>%
 ##, na.value = "gray80", palette="Reds"
 ```
 
-```{r dllo-prof-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Desarrollo Profesional (2)", fig.align="center",error=T, fig.height=8}
+```{r dllo-prof-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Desarrollo Profesional (2)", fig.align="center",error=T, fig.height=8}
 invisible("ALERTA: Que se modifique")
 
 library(ggrepel)
@@ -1800,7 +1801,7 @@ ggplot(aes(x=as.character(key),y=valid_perc_num/100,fill=val_text, label= valid_
 
 <br>
 
-```{r fig-lid-ent-trab, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo", fig.align="center",error=T}
+```{r fig-lid-ent-trab, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo", fig.align="center",error=T}
 lid_ent_trab_bars<-
 encuesta_rec %>% 
   dplyr::mutate_at(.vars=vars(starts_with("lid"),starts_with("ent_trab")),.funs = ~as.numeric(.)-1) %>% 
@@ -1868,7 +1869,7 @@ ggplotly(lid_ent_trab_bars_plot, tooltip = c("label_text"))%>%
   layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
 ```
 
-```{r fig-lid-ent-trab-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo (2)", fig.align="center",error=T, fig.height=8}
+```{r fig-lid-ent-trab-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Liderazgo y Entorno de Trabajo (2)", fig.align="center",error=T, fig.height=8}
 
 library(ggrepel)
 lid_ent_trab_bars %>% 
@@ -1902,7 +1903,7 @@ ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
 ```
 
 
-```{r fig-covid-19, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre COVID-19", fig.align="center",error=T}
+```{r fig-covid-19, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre COVID-19", fig.align="center",error=T}
 covid_19_bars<-
 encuesta_rec %>% 
   dplyr::mutate_at(.vars=vars(paste0("covid_",1:4)),.funs = ~as.numeric(.)-1) %>% 
@@ -1970,7 +1971,7 @@ ggplotly(covid_19_bars_plot, tooltip = c("label_text"))%>%
   layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
 ```
 
-```{r covid-19-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre COVID-19 (2)", fig.align="center",error=T, fig.height=8}
+```{r covid-19-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre COVID-19 (2)", fig.align="center",error=T, fig.height=8}
 
 library(ggrepel)
 covid_19_bars %>% 
@@ -2004,7 +2005,7 @@ ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
 ```
 
 
-```{r otros1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Otras variables", fig.align="center",error=T}
+```{r otros1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Otras variables", fig.align="center",error=T}
 #"com_1"           "com_2"           "ges_des_1"       "ges_des_2"      
 #[37] "comp_ben_1"      "comp_ben_2"     
 resto_bars<-
@@ -2074,7 +2075,7 @@ ggplotly(resto_bars_plot, tooltip = c("label_text"))%>%
   layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
 ```
 
-```{r otros-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Otras variables (2)", fig.align="center",error=T, fig.height=8}
+```{r otros-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Otras variables (2)", fig.align="center",error=T, fig.height=8}
 
 library(ggrepel)
 resto_bars %>% 
@@ -2107,7 +2108,7 @@ ggplot(aes(x=key,y=valid_perc_num/100,fill=val_text, label= valid_perc))+
   scale_x_discrete(labels =c("Esfuerzo conocer\nempleados","Información para\n hacer\ntrabajo","Programa\nBeneficios\n responde\nnecesidades", "Remuneraciones\ncompetitivas","Recibe\nfeedback\nregular","Reconoce\ndesempeño\nexcelente"))
 ```
 
-```{r fig-superv1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Supervisor/a", fig.align="center",error=T}
+```{r fig-superv1, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Supervisor/a", fig.align="center",error=T}
 superv_bars<-
 encuesta_rec %>% 
   dplyr::mutate_at(.vars=vars(paste0("superv_",1:3)),.funs = ~as.numeric(.)-1) %>% 
@@ -2175,7 +2176,7 @@ ggplotly(superv_bars_plot, tooltip = c("label_text"))%>%
   layout(xaxis= list(showticklabels = T), showlegend=F)#, height = 750, width=1100)
 ```
 
-```{r superv-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Figura. Gráfico de Barras, Preguntas Sobre Supervisor/a (2)", fig.align="center",error=T, fig.height=8}
+```{r superv-2, echo=T, cache= T, paged.print=TRUE, warning=T, fig.cap="Gráfico de Barras, Preguntas Sobre Supervisor/a (2)", fig.align="center",error=T, fig.height=8}
 
 library(ggrepel)
 superv_bars %>% 
